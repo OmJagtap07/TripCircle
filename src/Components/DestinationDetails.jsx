@@ -1,9 +1,10 @@
 import React from 'react';
 import SpecialDeals from './SpecialDeals'; 
 
-const DestinationDetails = ({ destinationName, onBack, allTrips, myFriends }) => {
+// 1. ADD 'onPlanTrip' TO THE PROPS HERE
+const DestinationDetails = ({ destinationName, onBack, allTrips, myFriends, onPlanTrip }) => {
   
-  // --- 1. THE MOCK DATABASE (Add your new places here!) ---
+  // --- 1. THE MOCK DATABASE ---
   const destinationsDB = {
     "japan": {
       name: "Japan",
@@ -35,12 +36,12 @@ const DestinationDetails = ({ destinationName, onBack, allTrips, myFriends }) =>
       name: "Goa",
       country: "India",
       tagline: "Sun, Sand, and Spices. The ultimate party destination.",
-      coverImage: "https://images.unsplash.com/photo-1512453979798-5ea90b79158e?q=80&w=2000",
+      coverImage: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTfX7yW7MV5rUGo4LFs_hm3FXkfHTbCqh81ag&s",
       friendsVisiting: 8,
       friendsPlanning: 10,
       posts: [
-        "https://images.unsplash.com/photo-1589330273594-fade1ee91647?w=400", // Using general beach photos
-        "https://images.unsplash.com/photo-1590494165263-91b980006367?w=400",
+        "https://images.unsplash.com/photo-1589330273594-fade1ee91647?w=400",
+        "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQuzrClgpj5cu2eSZpwNv31CuJcSd1mIBlIMg&s",
         "https://images.unsplash.com/photo-1544550581-5f7ceaf7f992?w=400"
       ]
     },
@@ -48,16 +49,16 @@ const DestinationDetails = ({ destinationName, onBack, allTrips, myFriends }) =>
       name: "Paris",
       country: "France",
       tagline: "The city of love, art, and fashion.",
-      coverImage: "https://images.unsplash.com/photo-1502602898657-3e91760cbb34?q=80&w=2000",
+      coverImage: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRuvQvwHcd--iw7pYrtiur8rb9NrY61NNUQdw&s",
       friendsVisiting: 2,
       friendsPlanning: 1,
       posts: [
-        "https://images.unsplash.com/photo-1511739001486-6bfe10ce7859?w=400",
+        "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcShrf16TWyrWrVs2gisuUdrHILn39-KeHrVAg&s",
         "https://images.unsplash.com/photo-1503917988258-f87a78e3c995?w=400",
-        "https://images.unsplash.com/photo-1499856871940-a09627c6d7db?w=400"
+        "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRuvQvwHcd--iw7pYrtiur8rb9NrY61NNUQdw&s"
       ]
     },
-    // DEFAULT FALLBACK (If they search "Mars" or something we don't know)
+    // DEFAULT FALLBACK
     "default": {
       name: destinationName,
       country: "Global Destination",
@@ -74,11 +75,10 @@ const DestinationDetails = ({ destinationName, onBack, allTrips, myFriends }) =>
   };
 
   // --- 2. SELECT THE RIGHT DATA ---
-  // We convert the search to lowercase (e.g. "Japan" -> "japan") to match keys
   const searchKey = destinationName?.toLowerCase();
   const data = destinationsDB[searchKey] || destinationsDB["default"];
 
-  // Filter trips that match this destination (Case insensitive)
+  // Filter trips that match this destination
   const relatedTrips = allTrips.filter(t => 
     t.location.toLowerCase().includes(destinationName.toLowerCase()) || 
     t.name.toLowerCase().includes(destinationName.toLowerCase())
@@ -87,7 +87,7 @@ const DestinationDetails = ({ destinationName, onBack, allTrips, myFriends }) =>
   return (
     <div className="min-h-screen bg-white animate-in slide-in-from-right duration-300">
       
-      {/* 🟢 SECTION 1: DESTINATION OVERVIEW (Cover) */}
+      {/* 🟢 SECTION 1: DESTINATION OVERVIEW */}
       <div className="relative h-[400px] w-full">
         <img 
           src={data.coverImage} 
@@ -96,7 +96,6 @@ const DestinationDetails = ({ destinationName, onBack, allTrips, myFriends }) =>
         />
         <div className="absolute inset-0 bg-black/40"></div>
         
-        {/* Back Button */}
         <button 
           onClick={onBack}
           className="absolute top-8 left-8 bg-white/20 hover:bg-white/40 backdrop-blur-md text-white px-4 py-2 rounded-full font-bold transition-all flex items-center gap-2"
@@ -104,7 +103,6 @@ const DestinationDetails = ({ destinationName, onBack, allTrips, myFriends }) =>
           ← Back to Home
         </button>
 
-        {/* Title Content */}
         <div className="absolute bottom-10 left-8 md:left-16 text-white max-w-3xl">
           <span className="bg-orange-500 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider mb-2 inline-block">
             {data.country}
@@ -116,10 +114,9 @@ const DestinationDetails = ({ destinationName, onBack, allTrips, myFriends }) =>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-16">
 
-        {/* 🟢 SECTION 2: FRIENDS ACTIVITY (Core USP) */}
+        {/* 🟢 SECTION 2: FRIENDS ACTIVITY */}
         <section className="bg-orange-50 rounded-3xl p-8 border border-orange-100 flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-4">
-            {/* Avatar Pile */}
             <div className="flex -space-x-4">
               {myFriends.slice(0, 4).map((friend, i) => (
                 <img 
@@ -153,12 +150,22 @@ const DestinationDetails = ({ destinationName, onBack, allTrips, myFriends }) =>
           />
           {relatedTrips.length === 0 && (
              <div className="p-8 text-center bg-gray-50 rounded-2xl border border-dashed border-gray-300">
-               <p className="text-gray-500">No public itineraries found for {data.name} yet. <span className="text-orange-600 font-bold cursor-pointer">Be the first to create one!</span></p>
+               <p className="text-gray-500">
+                 No public itineraries found for {data.name} yet. 
+                 
+                 {/* 2. ATTACH THE ONCLICK EVENT HERE! */}
+                 <span 
+                   onClick={onPlanTrip}
+                   className="text-orange-600 font-bold cursor-pointer ml-1 hover:underline"
+                 >
+                   Be the first to create one!
+                 </span>
+               </p>
              </div>
           )}
         </div>
 
-        {/* 🟢 SECTION 4: EXPERIENCES (Social Content) */}
+        {/* 🟢 SECTION 4: EXPERIENCES */}
         <section>
           <div className="flex justify-between items-end mb-8">
             <div>
@@ -169,7 +176,6 @@ const DestinationDetails = ({ destinationName, onBack, allTrips, myFriends }) =>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 h-[400px]">
-            {/* Large item */}
             <div className="md:col-span-2 md:row-span-2 relative rounded-2xl overflow-hidden group cursor-pointer">
                <img src={data.posts[0]} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" alt="post 1"/>
                <div className="absolute bottom-4 left-4 flex items-center gap-2">
@@ -177,7 +183,6 @@ const DestinationDetails = ({ destinationName, onBack, allTrips, myFriends }) =>
                  <span className="text-white font-bold text-sm bg-black/40 px-2 py-1 rounded-full backdrop-blur-sm">Rohan in {data.name}</span>
                </div>
             </div>
-            {/* Smaller items */}
             <div className="relative rounded-2xl overflow-hidden group cursor-pointer">
                <img src={data.posts[1]} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" alt="post 2"/>
             </div>

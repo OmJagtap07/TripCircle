@@ -11,7 +11,7 @@ import CategorySpotlight from './Components/CategorySpotlight';
 import TripWizard from './Components/TripWizard';
 import Login from './Components/Login'; 
 import Features from './Components/Features';
-import DestinationDetails from './Components/DestinationDetails'; // Make sure you created this file!
+import DestinationDetails from './Components/DestinationDetails';
 import "./index.css";
 
 function App() {
@@ -20,11 +20,11 @@ function App() {
   const [showLogin, setShowLogin] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState("all");
 
-  // --- NEW: Navigation State ---
-  const [view, setView] = useState("home"); // "home" or "destination"
+  // Navigation State
+  const [view, setView] = useState("home");
   const [searchedDestination, setSearchedDestination] = useState("");
 
-  // --- 1. MOCK DATA: YOUR SOCIAL CIRCLE ---
+  // --- 1. MOCK DATA ---
   const myFriends = ["Rohan", "Sarah", "Raj", "Simran", "Amit"];
 
   // --- 2. THE MASTER DATA ---
@@ -71,7 +71,7 @@ function App() {
       creator: "College Gang", 
       location: "GOA", 
       budget: 8000, 
-      img: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRVUdePkDD2k2rkE3LFuUmEPty8vNO4Z0z-aA&s",
+      img: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQuzrClgpj5cu2eSZpwNv31CuJcSd1mIBlIMg&s",
       members: ["Raj", "Simran", "Amit", "Neha", "Pooja"], 
       tags: ["Party", "Budget Friendly"],
       avatar: "https://ui-avatars.com/api/?name=College&background=random",
@@ -95,13 +95,12 @@ function App() {
       creator: "Cultural Club", 
       location: "GUJARAT", 
       budget: 5000, 
-      img: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSxIG0Yx8BpTB37BrjlCF_TSln0MVhDoL5Mzg&s",
+      img: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRVUdePkDD2k2rkE3LFuUmEPty8vNO4Z0z-aA&s",
       members: ["Ajay", "Vijay"],
       tags: ["Culture", "Road Trip"],
       avatar: "https://ui-avatars.com/api/?name=Culture&background=random",
       dateRange: "Feb 14 - Feb 18"
     },
-    // --- NEW TRIP ADDED FOR SEARCH DEMO ---
     { 
       id: 7, 
       name: "Tokyo Explorer",
@@ -199,86 +198,80 @@ function App() {
   };
 
   const spotlightData = getSpotlightData();
-
+  
   // --- 5. HANDLERS ---
   const handleLogin = (userData) => { setUser(userData); setShowLogin(false); };
   const handleLogout = () => { setUser(null); };
 
-  // --- NEW: SEARCH HANDLER ---
+  // --- SEARCH HANDLER ---
   const handleSearch = (term) => {
     setSearchedDestination(term);
-    setView("destination"); // Change view to destination page
-    window.scrollTo(0, 0);  // Scroll to top
+    setView("destination"); 
+    window.scrollTo(0, 0); 
   };
-
+  
   // --- 6. RENDER LOGIC ---
 
-  // A. Show Login Page
   if (showLogin) return <Login onLogin={handleLogin} onBack={() => setShowLogin(false)} />;
 
-  // B. Show Destination Page (Search Result)
-  if (view === "destination") {
-    return (
-      <DestinationDetails 
-        destinationName={searchedDestination}
-        onBack={() => setView("home")} // Allow going back
-        allTrips={allTrips}
-        myFriends={myFriends}
-      />
-    );
-  }
-
-  // C. Show Default Home Page
   return (
     <div className="min-h-screen bg-white">
-      <Header user={user} onLoginClick={() => setShowLogin(true)} onLogout={handleLogout} />
       
-      {/* Pass handleSearch to Hero so the search bar works! */}
-      <Hero onSearch={handleSearch} />
+      <Header 
+        user={user} 
+        onLoginClick={() => setShowLogin(true)} 
+        onLogout={handleLogout}
+      />
+      
+      {/* VIEW LOGIC */}
+      {view === "destination" ? (
+         // --- DESTINATION VIEW ---
+         <>
+            <DestinationDetails 
+                destinationName={searchedDestination}
+                onBack={() => setView("home")}
+                allTrips={allTrips}
+                myFriends={myFriends}
+                
+                // 🔥 THIS WAS THE MISSING LINE! 🔥
+                // We are passing the function to open the modal
+                onPlanTrip={() => setIsModalOpen(true)}
+            />
+         </>
+      ) : (
+        // --- HOME VIEW ---
+        <>
+          <Hero onSearch={handleSearch} />
+          
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-10 relative z-30 space-y-16 pb-20">
+             <Categories selectedCategory={selectedCategory} onSelectCategory={setSelectedCategory} />
+             
+             {selectedCategory === 'all' ? (
+                <MapTeaser />
+             ) : (
+                <CategorySpotlight 
+                  trip={spotlightData?.trip}
+                  badgeText={spotlightData?.badgeText}
+                  subtitle={spotlightData?.subtitle}
+                  extraInfo={spotlightData?.extraInfo}
+                />
+             )}
+             
+             <SpecialDeals trips={getFilteredTrips()} myFriends={myFriends} category={selectedCategory} />
+             
+             <TrendingDestinations />
+             <Features />
+          </div>
+        </>
+      )}
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-10 relative z-30 space-y-16 pb-20">
-        
-        {/* Categories Bar */}
-        <Categories 
-          selectedCategory={selectedCategory} 
-          onSelectCategory={setSelectedCategory} 
-        />
-        
-        {/* Dynamic Banner */}
-        {selectedCategory === 'all' ? (
-          <MapTeaser />
-        ) : (
-          <CategorySpotlight 
-            trip={spotlightData?.trip}
-            badgeText={spotlightData?.badgeText}
-            subtitle={spotlightData?.subtitle}
-            extraInfo={spotlightData?.extraInfo}
-          />
-        )}
-        
-        {/* The Filtered Grid */}
-        <SpecialDeals 
-          trips={getFilteredTrips()} 
-          myFriends={myFriends} 
-          category={selectedCategory}
-        />
-        
-        {/* Other Sections */}
-        <TrendingDestinations />
-        <Features />
-        
-      </div>
-
-      {/* Modals */}
+      {/* --- IMPORTANT: The Modal must be OUTSIDE the view condition --- */}
+      {/* This ensures it can open on BOTH the Home Page and Destination Page */}
       <TripWizard isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
 
-      <button 
-        onClick={() => user ? setIsModalOpen(true) : setShowLogin(true)} 
-        className="fixed bottom-8 right-8 z-50 bg-white shadow-2xl rounded-full px-6 py-3 flex items-center space-x-2 border border-orange-100 hover:scale-105 transition-transform"
-      >
-        <span className="text-orange-500 font-bold">
-          {user ? "✈️ Plan Your Trip" : "🔒 Login to Plan"}
-        </span>
+      {/* Floating Button */}
+      <button onClick={() => user ? setIsModalOpen(true) : setShowLogin(true)} className="fixed bottom-8 right-8 z-50 bg-white shadow-2xl rounded-full px-6 py-3 flex items-center space-x-2 border border-orange-100 hover:scale-105 transition-transform">
+        <span className="text-orange-500 font-bold">{user ? "✈️ Plan Your Trip" : "🔒 Login to Plan"}</span>
       </button>
 
     </div>
