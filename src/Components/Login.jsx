@@ -1,105 +1,89 @@
-import React, { useState } from 'react';
+import React from 'react';
 
 const Login = ({ onLogin, onBack }) => {
-  // 1. New State for Nickname
-  const [nickname, setNickname] = useState(""); 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (nickname && email && password) {
-      // 2. We pass the NICKNAME back to the App
-      onLogin({ 
-        name: nickname, 
-        // This API generates an avatar with their initials!
-        avatar: `https://ui-avatars.com/api/?name=${nickname}&background=f97316&color=fff` 
-      });
-    } else {
-      alert("Please fill in all fields (we need your nickname!)");
-    }
-  };
-
   return (
-    <div className="fixed inset-0 z-50 bg-white flex animate-in fade-in duration-300">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
       
-      {/* LEFT SIDE: Image */}
-      <div className="hidden lg:block w-1/2 h-full relative">
-        <img 
-          src="https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?q=80&w=2000" 
-          className="w-full h-full object-cover"
-          alt="Travel Login"
-        />
-        <div className="absolute inset-0 bg-black/30"></div>
-        <div className="absolute bottom-10 left-10 text-white">
-          <h2 className="text-4xl font-bold font-serif italic">Start Your Journey</h2>
-          <p className="text-lg opacity-90 mt-2">Join thousands of travelers planning their next big trip.</p>
-        </div>
-      </div>
-
-      {/* RIGHT SIDE: Form */}
-      <div className="w-full lg:w-1/2 h-full flex items-center justify-center p-8 relative">
+      {/* Login Card */}
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden relative">
+        
+        {/* Close Button */}
         <button 
           onClick={onBack}
-          className="absolute top-8 right-8 text-gray-400 hover:text-gray-900 font-bold bg-gray-100 p-2 rounded-full w-10 h-10 flex items-center justify-center"
+          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors bg-gray-100 rounded-full p-2"
         >
           ✕
         </button>
 
-        <div className="w-full max-w-md space-y-8">
-          <div className="text-center">
-            <h2 className="text-3xl font-bold text-gray-900">Hello! 👋</h2>
-            <p className="text-gray-500 mt-2">Tell us who you are to get started.</p>
+        <div className="p-8">
+          {/* Header */}
+          <div className="text-center mb-8">
+            <div className="inline-block p-3 rounded-2xl bg-orange-100 mb-4">
+              <span className="text-3xl">👋</span>
+            </div>
+            <h2 className="text-2xl font-black text-gray-900">Welcome to TripCircle</h2>
+            <p className="text-gray-500 mt-2 text-sm">Plan your next adventure with friends.</p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
-            
-            {/* --- NEW NICKNAME FIELD --- */}
-            <div>
-              <label className="block text-sm font-bold text-gray-700 ml-1">Nickname</label>
-              <input 
-                type="text" 
-                value={nickname}
-                onChange={(e) => setNickname(e.target.value)}
-                className="mt-1 block w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 outline-none transition-all font-medium"
-                placeholder="What should we call you?"
-                required
-              />
-            </div>
+          {/* 1. Google Login Button (The Real Feature) */}
+          <button 
+            onClick={onLogin} // This triggers handleGoogleLogin from App.jsx
+            className="w-full flex items-center justify-center gap-3 bg-white border-2 border-gray-100 hover:border-gray-300 hover:bg-gray-50 text-gray-700 font-bold py-3.5 rounded-xl transition-all duration-200 group"
+          >
+            <img 
+              src="https://www.svgrepo.com/show/475656/google-color.svg" 
+              className="w-6 h-6 group-hover:scale-110 transition-transform" 
+              alt="Google"
+            />
+            Continue with Google
+          </button>
 
+          {/* 2. Divider */}
+          <div className="relative my-8">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-100"></div>
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-4 bg-white text-gray-400 font-medium">Or log in with email</span>
+            </div>
+          </div>
+
+          {/* 3. Traditional Form (Visual Placeholder for now) */}
+          <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
             <div>
-              <label className="block text-sm font-bold text-gray-700 ml-1">Email Address</label>
+              <label className="block text-xs font-bold text-gray-500 uppercase mb-1 ml-1">Email Address</label>
               <input 
                 type="email" 
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="mt-1 block w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 outline-none transition-all"
-                placeholder="you@example.com"
-                required
+                placeholder="you@example.com" 
+                className="w-full bg-gray-50 border border-gray-100 text-gray-900 text-sm rounded-xl focus:ring-orange-500 focus:border-orange-500 block p-3.5 outline-none transition-all"
               />
             </div>
-
             <div>
-              <label className="block text-sm font-bold text-gray-700 ml-1">Password</label>
+              <label className="block text-xs font-bold text-gray-500 uppercase mb-1 ml-1">Password</label>
               <input 
                 type="password" 
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="mt-1 block w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 outline-none transition-all"
-                placeholder="••••••••"
-                required
+                placeholder="••••••••" 
+                className="w-full bg-gray-50 border border-gray-100 text-gray-900 text-sm rounded-xl focus:ring-orange-500 focus:border-orange-500 block p-3.5 outline-none transition-all"
               />
             </div>
-
+            
             <button 
-              type="submit"
-              className="w-full py-4 rounded-xl shadow-lg shadow-orange-500/30 text-white font-bold bg-orange-600 hover:bg-orange-700 hover:scale-[1.02] transition-all active:scale-95"
+              type="button" // Prevent form submit
+              onClick={() => alert("Please use the Google Login button above for this demo!")}
+              className="w-full bg-gray-900 hover:bg-black text-white font-bold py-3.5 rounded-xl shadow-lg shadow-gray-900/20 active:scale-95 transition-all"
             >
-              Let's Go! ✈️
+              Sign In
             </button>
           </form>
 
+          {/* Footer */}
+          <p className="mt-8 text-center text-xs text-gray-400">
+            By continuing, you agree to our <a href="#" className="underline hover:text-gray-600">Terms</a> and <a href="#" className="underline hover:text-gray-600">Privacy Policy</a>.
+          </p>
         </div>
+        
+        {/* Bottom Decoration */}
+        <div className="h-2 bg-gradient-to-r from-orange-400 via-red-500 to-purple-600"></div>
       </div>
     </div>
   );

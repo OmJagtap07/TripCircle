@@ -12,6 +12,8 @@ import TripWizard from './Components/TripWizard';
 import Login from './Components/Login'; 
 import Features from './Components/Features';
 import DestinationDetails from './Components/DestinationDetails';
+import { auth, db, googleProvider, signInWithPopup, signOut, doc, setDoc } from './firebase';
+import { onAuthStateChanged } from "firebase/auth";
 import "./index.css";
 
 function App() {
@@ -19,15 +21,64 @@ function App() {
   const [user, setUser] = useState(null); 
   const [showLogin, setShowLogin] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState("all");
-
-  // Navigation State
   const [view, setView] = useState("home");
   const [searchedDestination, setSearchedDestination] = useState("");
 
-  // --- 1. MOCK DATA ---
-  const myFriends = ["Rohan", "Sarah", "Raj", "Simran", "Amit"];
+  // --- 1. FIREBASE AUTH OBSERVER ---
+  React.useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      if (firebaseUser) {
+        setUser({
+          name: firebaseUser.displayName,
+          email: firebaseUser.email,
+          avatar: firebaseUser.photoURL,
+          uid: firebaseUser.uid
+        });
+      } else {
+        setUser(null);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
 
-  // --- 2. THE MASTER DATA ---
+  // --- 2. AUTH HANDLERS ---
+  const handleGoogleLogin = async () => {
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      const loggedUser = result.user;
+
+      const userData = {
+        name: loggedUser.displayName,
+        email: loggedUser.email,
+        avatar: loggedUser.photoURL,
+        uid: loggedUser.uid,
+        lastSeen: new Date()
+      };
+
+      // Save to Firestore for social features
+      await setDoc(doc(db, "users", loggedUser.uid), userData, { merge: true });
+
+      setUser(userData);
+      setShowLogin(false);
+      console.log("Logged in and synced with Firestore!");
+    } catch (error) {
+      console.error("Login Failed:", error.message);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      setUser(null);
+      console.log("Logged out successfully");
+    } catch (error) {
+      console.error("Logout Failed:", error.message);
+    }
+  };
+  
+  // --- 3. DATA & SOCIAL CIRCLE ---
+  const myFriends = ["Rohan", "Sarah", "Raj", "Simran", "Amit"];
+  
   const allTrips = [
     { 
       id: 1, 
@@ -115,14 +166,11 @@ function App() {
     }
   ];
 
-  // --- 3. FILTERING LOGIC ---
+  // --- 4. LOGIC FUNCTIONS ---
   const getFilteredTrips = () => {
     switch(selectedCategory) {
       case "friends":
-        return allTrips.filter(trip => {
-          const commonFriends = trip.members.filter(member => myFriends.includes(member));
-          return commonFriends.length > 0;
-        });
+        return allTrips.filter(trip => trip.members.some(member => myFriends.includes(member)));
       case "solo":
         return allTrips.filter(trip => trip.members.length === 1);
       case "group":
@@ -138,142 +186,72 @@ function App() {
     }
   };
 
-  // --- 4. SPOTLIGHT LOGIC ---
   const getSpotlightData = () => {
-    switch (selectedCategory) {
-      case 'friends':
-        const friendTrip = allTrips.find(t => t.id === 1); 
-        return {
-          trip: friendTrip,
-          badgeText: "Friends Trip",
-          subtitle: <span className="text-orange-300 font-bold">3 of your friends are part of this trip!</span>,
-          extraInfo: (
-            <div className="flex -space-x-3 mt-2">
-              {friendTrip.members.map((m, i) => (
-                 <img key={i} src={`https://ui-avatars.com/api/?name=${m}&background=random`} className="w-8 h-8 rounded-full border border-gray-900" alt={m}/>
-              ))}
-            </div>
-          )
-        };
-
-      case 'solo':
-        const soloTrip = allTrips.find(t => t.id === 3);
-        return {
-          trip: soloTrip,
-          badgeText: "Solo Adventure",
-          subtitle: "Rated ⭐ 4.9/5 for Safety by solo travelers.",
-          extraInfo: null
-        };
-
-      case 'budget':
-        const budgetTrip = allTrips.find(t => t.id === 4);
-        return {
-          trip: budgetTrip,
-          badgeText: "Budget Steal",
-          subtitle: "Save ₹5,000 compared to regular tour packages.",
-          extraInfo: <span className="text-green-400 font-bold text-sm bg-green-900/50 px-2 py-1 rounded">💰 40% Cheaper</span>
-        };
-      
-      case 'adventure':
-        const advTrip = allTrips.find(t => t.id === 5);
-        return {
-          trip: advTrip,
-          badgeText: "Trending Trek",
-          subtitle: "High demand! 12 people joined this week.",
-          extraInfo: null
-        };
-
-      case 'group':
-         const groupTrip = allTrips.find(t => t.id === 2);
-         return {
-           trip: groupTrip,
-           badgeText: "Group Bestseller",
-           subtitle: "Perfect for large groups. Private bus included.",
-           extraInfo: null
-         };
-
-      default:
-        return null;
-    }
+    const spotlights = {
+      friends: { trip: allTrips[0], badge: "Friends Trip", sub: "3 friends are part of this trip!" },
+      solo: { trip: allTrips[2], badge: "Solo Adventure", sub: "Rated ⭐ 4.9/5 for Safety." },
+      budget: { trip: allTrips[3], badge: "Budget Steal", sub: "💰 40% Cheaper than average." },
+      adventure: { trip: allTrips[4], badge: "Trending Trek", sub: "12 people joined this week." },
+      group: { trip: allTrips[1], badge: "Group Bestseller", sub: "Private bus included." }
+    };
+    const data = spotlights[selectedCategory];
+    return data ? {
+      trip: data.trip,
+      badgeText: data.badge,
+      subtitle: data.sub,
+      extraInfo: selectedCategory === 'friends' ? (
+        <div className="flex -space-x-3 mt-2">
+          {data.trip.members.map((m, i) => (
+             <img key={i} src={`https://ui-avatars.com/api/?name=${m}&background=random`} className="w-8 h-8 rounded-full border border-gray-900" alt={m}/>
+          ))}
+        </div>
+      ) : null
+    } : null;
   };
 
   const spotlightData = getSpotlightData();
   
-  // --- 5. HANDLERS ---
-  const handleLogin = (userData) => { setUser(userData); setShowLogin(false); };
-  const handleLogout = () => { setUser(null); };
-
-  // --- SEARCH HANDLER ---
   const handleSearch = (term) => {
     setSearchedDestination(term);
     setView("destination"); 
     window.scrollTo(0, 0); 
   };
   
-  // --- 6. RENDER LOGIC ---
-
-  if (showLogin) return <Login onLogin={handleLogin} onBack={() => setShowLogin(false)} />;
+  // --- 5. RENDER ---
+  if (showLogin) return <Login onLogin={handleGoogleLogin} onBack={() => setShowLogin(false)} />;
 
   return (
     <div className="min-h-screen bg-white">
+      <Header user={user} onLoginClick={() => setShowLogin(true)} onLogout={handleLogout} />
       
-      <Header 
-        user={user} 
-        onLoginClick={() => setShowLogin(true)} 
-        onLogout={handleLogout}
-      />
-      
-      {/* VIEW LOGIC */}
       {view === "destination" ? (
-         // --- DESTINATION VIEW ---
-         <>
-            <DestinationDetails 
-                destinationName={searchedDestination}
-                onBack={() => setView("home")}
-                allTrips={allTrips}
-                myFriends={myFriends}
-                
-                // 🔥 THIS WAS THE MISSING LINE! 🔥
-                // We are passing the function to open the modal
-                onPlanTrip={() => setIsModalOpen(true)}
-            />
-         </>
+        <DestinationDetails 
+          destinationName={searchedDestination}
+          onBack={() => setView("home")}
+          allTrips={allTrips}
+          myFriends={myFriends}
+          onPlanTrip={() => setIsModalOpen(true)}
+        />
       ) : (
-        // --- HOME VIEW ---
         <>
           <Hero onSearch={handleSearch} />
-          
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-10 relative z-30 space-y-16 pb-20">
              <Categories selectedCategory={selectedCategory} onSelectCategory={setSelectedCategory} />
-             
-             {selectedCategory === 'all' ? (
-                <MapTeaser />
-             ) : (
-                <CategorySpotlight 
-                  trip={spotlightData?.trip}
-                  badgeText={spotlightData?.badgeText}
-                  subtitle={spotlightData?.subtitle}
-                  extraInfo={spotlightData?.extraInfo}
-                />
+             {selectedCategory === 'all' ? <MapTeaser /> : (
+                <CategorySpotlight {...spotlightData} />
              )}
-             
              <SpecialDeals trips={getFilteredTrips()} myFriends={myFriends} category={selectedCategory} />
-             
              <TrendingDestinations />
              <Features />
           </div>
         </>
       )}
 
-      {/* --- IMPORTANT: The Modal must be OUTSIDE the view condition --- */}
-      {/* This ensures it can open on BOTH the Home Page and Destination Page */}
       <TripWizard isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
 
-      {/* Floating Button */}
       <button onClick={() => user ? setIsModalOpen(true) : setShowLogin(true)} className="fixed bottom-8 right-8 z-50 bg-white shadow-2xl rounded-full px-6 py-3 flex items-center space-x-2 border border-orange-100 hover:scale-105 transition-transform">
         <span className="text-orange-500 font-bold">{user ? "✈️ Plan Your Trip" : "🔒 Login to Plan"}</span>
       </button>
-
     </div>
   );
 }
