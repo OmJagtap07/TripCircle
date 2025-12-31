@@ -1,104 +1,151 @@
 import React, { useState } from 'react';
+import { db } from '../firebase'; // Connect to database
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore'; // Firestore actions
 
-const TripWizard = ({ isOpen, onClose }) => {
-  if (!isOpen) return null;
+const TripWizard = ({ isOpen, onClose, user }) => {
+  const [loading, setLoading] = useState(false);
+  
+  // 1. STATE TO HOLD INPUTS
+  const [formData, setFormData] = useState({
+    name: '',
+    location: '',
+    budget: '',
+    dates: '',
+    guests: '1'
+  });
 
-  const [friends, setFriends] = useState([]);
-  const [currentFriend, setCurrentFriend] = useState("");
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
 
-  const handleAddFriend = (e) => {
+  // 2. SAVE TO FIREBASE
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (currentFriend.trim()) {
-      setFriends([...friends, currentFriend]);
-      setCurrentFriend("");
+
+    if (!user) {
+      alert("Please log in to create a trip!");
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      // Create the trip object
+      const newTrip = {
+        name: formData.name,
+        location: formData.location,
+        budget: Number(formData.budget),
+        dateRange: formData.dates,
+        guests: Number(formData.guests),
+        
+        // Tagging the creator so we can find it later
+        creatorId: user.uid, 
+        creatorName: user.name || "Anonymous",
+        members: [user.uid], // You are the first member
+        tags: ["Community"], // Default tag (we can make this dynamic later)
+        
+        createdAt: serverTimestamp()
+      };
+
+      // Send to "trips" collection
+      await addDoc(collection(db, "trips"), newTrip);
+      
+      // Success!
+      setFormData({ name: '', location: '', budget: '', dates: '', guests: '1' });
+      setLoading(false);
+      onClose();
+      alert("Trip Created Successfully! ✈️");
+
+    } catch (error) {
+      console.error("Error creating trip: ", error);
+      alert("Error saving trip. Check console.");
+      setLoading(false);
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 animate-in fade-in duration-200">
-      {/* 1. Dark Overlay (Backdrop) */}
-      <div 
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" 
-        onClick={onClose}
-      ></div>
+  if (!isOpen) return null;
 
-      {/* 2. The Modal Box */}
-      <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden transform transition-all scale-100">
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
+      <div className="bg-white rounded-3xl w-full max-w-lg p-8 shadow-2xl relative">
         
-        {/* Header */}
-        <div className="bg-orange-600 p-6 text-white">
-          <h2 className="text-2xl font-bold">Plan a New Adventure ✈️</h2>
-          <p className="opacity-90 text-sm">Create a group trip and split costs.</p>
-          <button 
-            onClick={onClose} 
-            className="absolute top-4 right-4 text-white/70 hover:text-white bg-black/20 hover:bg-black/40 rounded-full w-8 h-8 flex items-center justify-center transition-colors"
-          >
-            ✕
-          </button>
+        <button 
+          onClick={onClose}
+          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 bg-gray-100 rounded-full p-2"
+        >
+          ✕
+        </button>
+
+        <div className="text-center mb-6">
+          <h2 className="text-2xl font-black text-gray-900">Create New Trip</h2>
+          <p className="text-gray-500 text-sm">Where are we going next?</p>
         </div>
 
-        {/* Body */}
-        <div className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
           
-          {/* Destination Input */}
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-1">Where to?</label>
+            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Trip Name</label>
             <input 
               type="text" 
-              placeholder="e.g. Tokyo, Japan" 
-              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-orange-500 outline-none transition-all font-medium"
+              name="name"
+              required
+              value={formData.name}
+              onChange={handleChange}
+              placeholder="e.g. Goa with College Friends" 
+              className="w-full bg-gray-50 border border-gray-100 rounded-xl p-3 focus:ring-orange-500 focus:border-orange-500 outline-none"
             />
           </div>
 
-          {/* Budget Input */}
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-1">Estimated Budget (Per Person)</label>
-            <div className="relative">
-              <span className="absolute left-4 top-3 text-gray-400 font-bold">₹</span>
-              <input 
-                type="number" 
-                placeholder="20000" 
-                className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-8 pr-4 py-3 focus:ring-2 focus:ring-orange-500 outline-none font-medium"
-              />
-            </div>
+            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Destination</label>
+            <input 
+              type="text" 
+              name="location"
+              required
+              value={formData.location}
+              onChange={handleChange}
+              placeholder="e.g. Manali, India" 
+              className="w-full bg-gray-50 border border-gray-100 rounded-xl p-3 focus:ring-orange-500 focus:border-orange-500 outline-none"
+            />
           </div>
 
-          {/* Add Friends Section */}
-          <div>
-            <label className="block text-sm font-bold text-gray-700 mb-1">Invite Travel Buddies</label>
-            <form onSubmit={handleAddFriend} className="flex gap-2">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Dates</label>
               <input 
                 type="text" 
-                value={currentFriend}
-                onChange={(e) => setCurrentFriend(e.target.value)}
-                placeholder="Enter friend's name..." 
-                className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-orange-500 outline-none"
+                name="dates"
+                required
+                value={formData.dates}
+                onChange={handleChange}
+                placeholder="e.g. Dec 25 - Jan 1" 
+                className="w-full bg-gray-50 border border-gray-100 rounded-xl p-3 outline-none"
               />
-              <button className="bg-gray-900 text-white px-4 rounded-xl font-bold hover:bg-black transition-colors">
-                +
-              </button>
-            </form>
-            
-            {/* Friends Chips */}
-            <div className="flex flex-wrap gap-2 mt-3 min-h-[30px]">
-              {friends.length === 0 && <span className="text-xs text-gray-400 italic">No friends invited yet</span>}
-              {friends.map((friend, idx) => (
-                <span key={idx} className="bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-sm font-bold flex items-center">
-                  {friend}
-                </span>
-              ))}
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Budget (₹)</label>
+              <input 
+                type="number" 
+                name="budget"
+                required
+                value={formData.budget}
+                onChange={handleChange}
+                placeholder="5000" 
+                className="w-full bg-gray-50 border border-gray-100 rounded-xl p-3 outline-none"
+              />
             </div>
           </div>
 
-        </div>
-
-        {/* Footer Action */}
-        <div className="p-4 border-t border-gray-100 bg-gray-50 flex justify-end">
-          <button className="bg-orange-600 hover:bg-orange-700 text-white px-8 py-3 rounded-xl font-bold shadow-lg shadow-orange-500/30 transition-transform active:scale-95">
-            Create Trip Group
+          <button 
+            type="submit" 
+            disabled={loading}
+            className="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-4 rounded-xl shadow-lg transition-transform active:scale-95 flex justify-center items-center mt-4"
+          >
+            {loading ? "Creating Trip..." : "🚀 Launch Trip Plan"}
           </button>
-        </div>
 
+        </form>
       </div>
     </div>
   );
