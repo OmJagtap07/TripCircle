@@ -3,43 +3,44 @@ import React, { useState } from 'react';
 // --- 1. FIREBASE IMPORTS ---
 import { auth, db, googleProvider, signInWithPopup, signOut } from './firebase';
 import { onAuthStateChanged } from "firebase/auth";
-import { 
-  collection, 
-  addDoc, 
-  updateDoc, 
-  deleteDoc, 
-  doc, 
-  setDoc, 
-  arrayUnion, 
-  onSnapshot, 
+import {
+  collection,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  doc,
+  setDoc,
+  arrayUnion,
+  onSnapshot,
   arrayRemove
-} from "firebase/firestore"; 
+} from "firebase/firestore";
 
 // --- COMPONENT IMPORTS ---
 import Header from './Components/Header';
 import Hero from './Components/Hero';
 import Categories from './Components/Categories';
 import TrendingDestinations from './Components/TrendingDestinations';
-import SpecialDeals from './Components/SpecialDeals'; 
+import SpecialDeals from './Components/SpecialDeals';
 import MapTeaser from './Components/MapTeaser';
-import CategorySpotlight from './Components/CategorySpotlight'; 
+import CategorySpotlight from './Components/CategorySpotlight';
 import TripWizard from './Components/TripWizard';
-import Login from './Components/Login'; 
+import Login from './Components/Login';
 import Features from './Components/Features';
 import DestinationDetails from './Components/DestinationDetails';
 import TripAssistant from './Components/TripAssistant';
+import UserProfile from './Components/UserProfile';
 
 function App() {
   // --- STATE ---
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [user, setUser] = useState(null); 
+  const [user, setUser] = useState(null);
   const [showLogin, setShowLogin] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [view, setView] = useState("home");
   const [searchedDestination, setSearchedDestination] = useState("");
-  
+
   // 🔥 UNIFIED DATA STATE (Holds ALL trips from Firebase)
-  const [trips, setTrips] = useState([]); 
+  const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // --- 1. INITIALIZE & FETCH DATA ---
@@ -66,7 +67,7 @@ function App() {
         ...doc.data(),
         img: doc.data().img || "https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?q=80&w=800",
         tags: doc.data().tags || ["Community"],
-        members: doc.data().members || [] 
+        members: doc.data().members || []
       }));
       setTrips(tripsData);
       setLoading(false);
@@ -122,10 +123,10 @@ function App() {
 
   const handleSearch = (term) => {
     setSearchedDestination(term);
-    setView("destination"); 
-    window.scrollTo(0, 0); 
+    setView("destination");
+    window.scrollTo(0, 0);
   };
-  
+
   // --- JOIN / LEAVE TOGGLE LOGIC ---
   const handleJoinTrip = async (tripId) => {
     if (!user) {
@@ -154,7 +155,7 @@ function App() {
         });
         // You can add a confetti effect here later if you want!
       }
-      
+
     } catch (error) {
       console.error("Error updating trip:", error);
       alert("Something went wrong. Try again.");
@@ -163,16 +164,16 @@ function App() {
 
   // --- FILTERING & MOCK DATA HELPERS ---
   const myFriends = ["Rohan", "Sarah", "Raj", "Simran", "Amit"];
-  
+
   const getFilteredTrips = () => {
-    let data = trips; 
+    let data = trips;
 
     // If viewing "My Trips", show trips I CREATED
     if (view === "my-trips" && user) {
-        return trips.filter(t => t.creatorId === user.uid);
+      return trips.filter(t => t.creatorId === user.uid);
     }
 
-    switch(selectedCategory) {
+    switch (selectedCategory) {
       case "friends": return data.filter(trip => trip.members && trip.members.some(member => myFriends.includes(member)));
       case "solo": return data.filter(trip => trip.tags.includes("Solo"));
       case "group": return data.filter(trip => trip.tags.includes("Party") || trip.members.length >= 2);
@@ -206,20 +207,29 @@ function App() {
 
   // --- RENDER ---
   if (showLogin) return <Login onLogin={handleGoogleLogin} onBack={() => setShowLogin(false)} />;
-  
+
 
   return (
     <div className="min-h-screen bg-white">
-      
-      <Header 
-        user={user} 
-        onLoginClick={() => setShowLogin(true)} 
+
+      <Header
+        user={user}
+        onLoginClick={() => setShowLogin(true)}
         onLogout={handleLogout}
-        onMyTripsClick={() => setView("my-trips")} // Updated to just switch view
+        onMyTripsClick={() => setView("my-trips")}
+        onProfileClick={() => user && setView("profile")}
       />
-      
-      {view === "destination" ? (
-        <DestinationDetails 
+
+      {view === "profile" && user ? (
+        <UserProfile
+          user={user}
+          trips={trips}
+          onBack={() => setView("home")}
+          onPlanTrip={() => setIsModalOpen(true)}
+          onJoin={handleJoinTrip}
+        />
+      ) : view === "destination" ? (
+        <DestinationDetails
           destinationName={searchedDestination}
           onBack={() => setView("home")}
           allTrips={trips} // Pass real trips
@@ -227,60 +237,60 @@ function App() {
           onPlanTrip={() => setIsModalOpen(true)}
         />
       ) : view === "my-trips" ? (
-         
-         // --- MY TRIPS VIEW ---
-         <div className="max-w-7xl mx-auto px-4 py-10 min-h-[60vh]">
-            <button onClick={() => setView("home")} className="mb-6 text-gray-500 hover:text-orange-500 font-bold">← Back to Home</button>
-            <h1 className="text-3xl font-black text-gray-900 mb-2">My Trips ✈️</h1>
-            <p className="text-gray-500 mb-8">Itineraries you have created.</p>
 
-            {loading ? (
-              <div className="text-center py-20 text-gray-400 animate-pulse">Loading your adventures...</div>
-            ) : getFilteredTrips().length > 0 ? (
-               <SpecialDeals 
-                  trips={getFilteredTrips()} 
-                  myFriends={[]} 
-                  category="my-trips" 
-                  onDelete={handleDeleteTrip} 
-                  onJoin={handleJoinTrip}
-                  user={user}
-               />
-            ) : (
-               <div className="text-center py-20 bg-gray-50 rounded-3xl border border-dashed border-gray-200">
-                  <p className="text-xl text-gray-400 font-bold mb-4">You haven't created any trips yet.</p>
-                  <button onClick={() => setIsModalOpen(true)} className="bg-orange-600 text-white px-6 py-3 rounded-full font-bold hover:bg-orange-700 transition">
-                    Plan your first trip now
-                  </button>
-               </div>
-            )}
-         </div>
+        // --- MY TRIPS VIEW ---
+        <div className="max-w-7xl mx-auto px-4 py-10 min-h-[60vh]">
+          <button onClick={() => setView("home")} className="mb-6 text-gray-500 hover:text-orange-500 font-bold">← Back to Home</button>
+          <h1 className="text-3xl font-black text-gray-900 mb-2">My Trips ✈️</h1>
+          <p className="text-gray-500 mb-8">Itineraries you have created.</p>
+
+          {loading ? (
+            <div className="text-center py-20 text-gray-400 animate-pulse">Loading your adventures...</div>
+          ) : getFilteredTrips().length > 0 ? (
+            <SpecialDeals
+              trips={getFilteredTrips()}
+              myFriends={[]}
+              category="my-trips"
+              onDelete={handleDeleteTrip}
+              onJoin={handleJoinTrip}
+              user={user}
+            />
+          ) : (
+            <div className="text-center py-20 bg-gray-50 rounded-3xl border border-dashed border-gray-200">
+              <p className="text-xl text-gray-400 font-bold mb-4">You haven't created any trips yet.</p>
+              <button onClick={() => setIsModalOpen(true)} className="bg-orange-600 text-white px-6 py-3 rounded-full font-bold hover:bg-orange-700 transition">
+                Plan your first trip now
+              </button>
+            </div>
+          )}
+        </div>
 
       ) : (
         // --- HOME VIEW ---
         <>
           <Hero onSearch={handleSearch} />
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-10 relative z-30 space-y-16 pb-20">
-             <Categories selectedCategory={selectedCategory} onSelectCategory={setSelectedCategory} />
-             {selectedCategory === 'all' && <MapTeaser />}
-             {selectedCategory !== 'all' && spotlightData && <CategorySpotlight {...spotlightData} />}
-             
-             <SpecialDeals 
-                trips={getFilteredTrips()} 
-                myFriends={myFriends} 
-                category={selectedCategory} 
-                onJoin={handleJoinTrip} 
-                user={user}
-             />
-             
-             <TrendingDestinations />
-             <Features />
+            <Categories selectedCategory={selectedCategory} onSelectCategory={setSelectedCategory} />
+            {selectedCategory === 'all' && <MapTeaser />}
+            {selectedCategory !== 'all' && spotlightData && <CategorySpotlight {...spotlightData} />}
+
+            <SpecialDeals
+              trips={getFilteredTrips()}
+              myFriends={myFriends}
+              category={selectedCategory}
+              onJoin={handleJoinTrip}
+              user={user}
+            />
+
+            <TrendingDestinations />
+            <Features />
           </div>
         </>
       )}
 
       {/* MODALS & FLOATING BUTTONS */}
       <TripWizard isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} user={user} />
-      
+
       <TripAssistant />
 
       {view !== "my-trips" && (
