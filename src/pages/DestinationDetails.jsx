@@ -1,5 +1,5 @@
 import React from 'react';
-import SpecialDeals from './SpecialDeals'; 
+import SpecialDeals from '../components/SpecialDeals'; 
 
 // 1. ADD 'onPlanTrip' TO THE PROPS HERE
 const DestinationDetails = ({ destinationName, onBack, allTrips, myFriends, onPlanTrip }) => {
