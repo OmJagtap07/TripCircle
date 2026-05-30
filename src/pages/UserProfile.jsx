@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { db } from '../firebase';
+import { db } from '../config/firebase';
 import {
     doc, getDoc, updateDoc, collection, getDocs,
     arrayUnion, arrayRemove
@@ -214,32 +214,18 @@ const UserProfile = ({ user, trips, onBack, onPlanTrip, onJoin }) => {
                 <div className="relative -mt-16 mb-4 flex items-end justify-between">
                     <div className="relative">
                         <img
-                            src={user.avatar || `https://ui-avatars.com/api/?name=${user.name}&size=128&background=f97316&color=fff`}
+                            src={user.avatar || `https://api.dicebear.com/9.x/initials/svg?seed=${user.name}&backgroundColor=0284c7,059669,dc2626,ea580c,7c3aed,db2777&textColor=ffffff`}
                             alt={user.name}
-                            className="w-28 h-28 rounded-2xl border-4 border-white shadow-xl object-cover"
+                            className="w-28 h-28 rounded-2xl border-4 border-white shadow-xl object-cover bg-white"
                         />
-                        <span className="absolute -bottom-1.5 -right-1.5 bg-green-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full border-2 border-white">
-                            Active
-                        </span>
-                    </div>
-                    <div className="hidden sm:flex items-center gap-3 mb-2">
-                        {[
-                            { label: 'Trips Created', value: myCreatedTrips.length },
-                            { label: 'Trips Joined', value: myJoinedTrips.length },
-                            { label: 'Following', value: following.length },
-                        ].map(stat => (
-                            <div key={stat.label} className="text-center bg-white rounded-xl px-4 py-2 shadow-sm border border-gray-100">
-                                <p className="text-xl font-black text-gray-900">{stat.value}</p>
-                                <p className="text-[11px] text-gray-400 font-medium">{stat.label}</p>
-                            </div>
-                        ))}
+                        <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 rounded-full border-2 border-white shadow-sm" title="Active"></div>
                     </div>
                 </div>
 
                 {/* Name + bio */}
                 <div className="mb-6">
                     <h1 className="text-2xl font-black text-gray-900">{user.name}</h1>
-                    <p className="text-gray-400 text-sm">{user.email}</p>
+                    <p className="text-gray-500 text-sm font-medium">{user.email} &bull; Traveler</p>
 
                     {editingBio ? (
                         <div className="mt-3 flex items-start gap-2">
@@ -388,7 +374,7 @@ const UserProfile = ({ user, trips, onBack, onPlanTrip, onJoin }) => {
                                         {followingUsers.map(fu => (
                                             <div key={fu.uid} className="flex items-center gap-4 bg-white rounded-2xl p-4 border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
                                                 <img
-                                                    src={fu.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(fu.name || 'User')}&background=f97316&color=fff&size=80`}
+                                                    src={fu.avatar || `https://api.dicebear.com/9.x/initials/svg?seed=${fu.name || 'User'}&backgroundColor=0284c7,059669,dc2626,ea580c,7c3aed,db2777&textColor=ffffff`}
                                                     alt={fu.name}
                                                     className="w-12 h-12 rounded-full object-cover ring-2 ring-orange-200"
                                                 />
@@ -428,7 +414,7 @@ const UserProfile = ({ user, trips, onBack, onPlanTrip, onJoin }) => {
                                         {discoverUsers.map(du => (
                                             <div key={du.uid} className="flex items-center gap-4 bg-white rounded-2xl p-4 border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
                                                 <img
-                                                    src={du.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(du.name || 'User')}&background=6366f1&color=fff&size=80`}
+                                                    src={du.avatar || `https://api.dicebear.com/9.x/initials/svg?seed=${du.name || 'User'}&backgroundColor=0284c7,059669,dc2626,ea580c,7c3aed,db2777&textColor=ffffff`}
                                                     alt={du.name}
                                                     className="w-12 h-12 rounded-full object-cover ring-2 ring-indigo-100"
                                                 />

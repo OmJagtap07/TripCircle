@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { db } from '../firebase'; // Connect to database
+import { db } from '../config/firebase'; // Connect to database
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore'; // Firestore actions
 
 const TripWizard = ({ isOpen, onClose, user }) => {
