@@ -21,6 +21,19 @@
 
 ---
 
+## 📸 Screenshots
+
+### Home & Trip Discovery
+![Home](docs/screenshots/home.png)
+
+### Trip Wizard
+![Trip Wizard](docs/screenshots/trip-wizard.png)
+
+### AI Trip Assistant
+![AI Assistant](docs/screenshots/ai-assistant.png)
+
+---
+
 ## 🛠️ Tech Stack
 
 | Layer       | Technology                          |
@@ -39,18 +52,23 @@
 
 ```
 src/
-├── Components/
-│   ├── Header.jsx          # Nav, user avatar, login/logout
-│   ├── Hero.jsx            # Landing banner with search
-│   ├── Categories.jsx      # Filter tabs (All, Solo, Group…)
-│   ├── SpecialDeals.jsx    # Trip cards grid
-│   ├── TripWizard.jsx      # Multi-step trip creation modal
-│   ├── TripAssistant.jsx   # AI chat widget
-│   ├── DestinationDetails.jsx
-│   ├── UserProfile.jsx
+├── components/              # Reusable UI components
+│   ├── Header.jsx
+│   ├── Hero.jsx
+│   ├── Categories.jsx
+│   ├── TripWizard.jsx       # Multi-step trip creation
+│   ├── TripAssistant.jsx    # Gemini AI chat widget
+│   ├── MapView.jsx          # Leaflet map integration
 │   └── ...
-├── firebase.js             # Firebase config & exports
-└── App.jsx                 # Root component & state
+├── pages/                   # Route-level components
+│   ├── Login.jsx
+│   ├── UserProfile.jsx
+│   └── DestinationDetails.jsx
+├── config/
+│   └── firebase.js          # Firebase config & exports
+├── context/                 # Global auth state
+├── hooks/                   # Custom React hooks
+└── App.jsx
 ```
 
 ---
@@ -102,6 +120,21 @@ npm run build   # Outputs to dist/
 ```
 
 Push to `main` → Netlify auto-deploys.
+
+---
+
+## 🗺️ Roadmap
+
+- [x] Google authentication
+- [x] Trip creation with multi-step wizard
+- [x] Real-time join/leave with Firestore
+- [x] AI travel assistant (Gemini)
+- [x] Interactive map (Leaflet)
+- [x] User profiles with trip history
+- [ ] Collaborative trip planning boards
+- [ ] Group expense splitting
+- [ ] Travel feed from followed users
+- [ ] Push notifications for trip updates
 
 ---
 
