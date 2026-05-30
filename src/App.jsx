@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 
 // --- 1. FIREBASE IMPORTS ---
-import { auth, db, googleProvider, signInWithPopup, signOut } from './firebase';
+import { auth, db, googleProvider, signInWithPopup, signOut } from './config/firebase';
 import { onAuthStateChanged } from "firebase/auth";
 import {
   collection,
@@ -16,19 +16,19 @@ import {
 } from "firebase/firestore";
 
 // --- COMPONENT IMPORTS ---
-import Header from './Components/Header';
-import Hero from './Components/Hero';
-import Categories from './Components/Categories';
-import TrendingDestinations from './Components/TrendingDestinations';
-import SpecialDeals from './Components/SpecialDeals';
-import MapTeaser from './Components/MapTeaser';
-import CategorySpotlight from './Components/CategorySpotlight';
-import TripWizard from './Components/TripWizard';
-import Login from './Components/Login';
-import Features from './Components/Features';
-import DestinationDetails from './Components/DestinationDetails';
-import TripAssistant from './Components/TripAssistant';
-import UserProfile from './Components/UserProfile';
+import Header from './components/Header';
+import Hero from './components/Hero';
+import Categories from './components/Categories';
+import TrendingDestinations from './components/TrendingDestinations';
+import SpecialDeals from './components/SpecialDeals';
+import MapTeaser from './components/MapTeaser';
+import CategorySpotlight from './components/CategorySpotlight';
+import TripWizard from './components/TripWizard';
+import Login from './pages/Login';
+import Features from './components/Features';
+import DestinationDetails from './pages/DestinationDetails';
+import TripAssistant from './components/TripAssistant';
+import UserProfile from './pages/UserProfile';
 
 function App() {
   // --- STATE ---
