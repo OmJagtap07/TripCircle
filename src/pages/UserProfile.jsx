@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { db } from '../config/firebase';
 import {
     doc, getDoc, updateDoc, collection, getDocs,
-    arrayUnion, arrayRemove
+    arrayUnion, arrayRemove, increment
 } from 'firebase/firestore';
 
 // ── Banner presets ────────────────────────────────────────────────────────────
@@ -154,13 +154,25 @@ const UserProfile = ({ user, trips, onBack, onPlanTrip, onJoin }) => {
         try {
             if (isFollowing) {
                 // Unfollow
-                await updateDoc(myRef, { following: arrayRemove(targetUid) });
-                await updateDoc(targetRef, { followers: arrayRemove(user.uid) });
+                await updateDoc(myRef, { 
+                    following: arrayRemove(targetUid),
+                    followingCount: increment(-1)
+                });
+                await updateDoc(targetRef, { 
+                    followers: arrayRemove(user.uid),
+                    followersCount: increment(-1)
+                });
                 setFollowing(prev => prev.filter(uid => uid !== targetUid));
             } else {
                 // Follow
-                await updateDoc(myRef, { following: arrayUnion(targetUid) });
-                await updateDoc(targetRef, { followers: arrayUnion(user.uid) });
+                await updateDoc(myRef, { 
+                    following: arrayUnion(targetUid),
+                    followingCount: increment(1)
+                });
+                await updateDoc(targetRef, { 
+                    followers: arrayUnion(user.uid),
+                    followersCount: increment(1)
+                });
                 setFollowing(prev => [...prev, targetUid]);
             }
         } catch (e) { console.error('Follow error:', e); }

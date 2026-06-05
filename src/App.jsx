@@ -10,6 +10,7 @@ import {
   deleteDoc,
   doc,
   setDoc,
+  getDoc,
   arrayUnion,
   onSnapshot,
   arrayRemove
@@ -84,6 +85,10 @@ function App() {
     try {
       const result = await signInWithPopup(auth, googleProvider);
       const loggedUser = result.user;
+      
+      const userRef = doc(db, "users", loggedUser.uid);
+      const userSnap = await getDoc(userRef);
+
       const userData = {
         name: loggedUser.displayName,
         email: loggedUser.email,
@@ -91,7 +96,15 @@ function App() {
         uid: loggedUser.uid,
         lastSeen: new Date()
       };
-      await setDoc(doc(db, "users", loggedUser.uid), userData, { merge: true });
+
+      if (!userSnap.exists()) {
+        userData.followersCount = 0;
+        userData.followingCount = 0;
+        userData.following = [];
+        userData.followers = [];
+      }
+
+      await setDoc(userRef, userData, { merge: true });
       setUser(userData);
       setShowLogin(false);
     } catch (error) {
