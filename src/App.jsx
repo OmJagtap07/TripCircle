@@ -12,7 +12,8 @@ import {
   setDoc,
   arrayUnion,
   onSnapshot,
-  arrayRemove
+  arrayRemove,
+  writeBatch
 } from "firebase/firestore";
 
 // --- COMPONENT IMPORTS ---
@@ -29,6 +30,8 @@ import Features from './components/Features';
 import DestinationDetails from './pages/DestinationDetails';
 import TripAssistant from './components/TripAssistant';
 import UserProfile from './pages/UserProfile';
+import Inbox from './pages/Inbox';
+import { getOrCreateDirectChat } from './services/chatService';
 
 function App() {
   // --- STATE ---
@@ -38,6 +41,7 @@ function App() {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [view, setView] = useState("home");
   const [searchedDestination, setSearchedDestination] = useState("");
+  const [activeChatId, setActiveChatId] = useState(null);
 
   // 🔥 UNIFIED DATA STATE (Holds ALL trips from Firebase)
   const [trips, setTrips] = useState([]);
@@ -139,20 +143,25 @@ function App() {
       const targetTrip = trips.find(t => t.id === tripId);
       const isJoined = targetTrip?.members?.includes(user.uid);
       const tripRef = doc(db, "trips", tripId);
+      const chatRef = doc(db, "chats", `trip_${tripId}`);
+      const batch = writeBatch(db);
 
       if (isJoined) {
         // 1. LEAVE LOGIC (If already joined, remove them)
         if (window.confirm("Do you want to leave this trip? 😢")) {
-          await updateDoc(tripRef, {
-            members: arrayRemove(user.uid)
-          });
+          batch.update(tripRef, { members: arrayRemove(user.uid) });
+          batch.update(chatRef, { participantIds: arrayRemove(user.uid) });
+          await batch.commit();
           // No alert needed, UI updates instantly
         }
       } else {
         // 2. JOIN LOGIC (If not joined, add them)
-        await updateDoc(tripRef, {
-          members: arrayUnion(user.uid)
+        batch.update(tripRef, { members: arrayUnion(user.uid) });
+        batch.update(chatRef, { 
+          participantIds: arrayUnion(user.uid),
+          [`participantsData.${user.uid}`]: { name: user.name, avatar: user.avatar || null }
         });
+        await batch.commit();
         // You can add a confetti effect here later if you want!
       }
 
@@ -218,15 +227,26 @@ function App() {
         onLogout={handleLogout}
         onMyTripsClick={() => setView("my-trips")}
         onProfileClick={() => user && setView("profile")}
+        onInboxClick={() => {
+          setActiveChatId(null);
+          setView("inbox");
+        }}
       />
 
-      {view === "profile" && user ? (
+      {view === "inbox" && user ? (
+        <Inbox user={user} initialChatId={activeChatId} />
+      ) : view === "profile" && user ? (
         <UserProfile
           user={user}
           trips={trips}
           onBack={() => setView("home")}
           onPlanTrip={() => setIsModalOpen(true)}
           onJoin={handleJoinTrip}
+          onMessageUser={async (targetUser) => {
+             const chatId = await getOrCreateDirectChat(user, targetUser);
+             setActiveChatId(chatId);
+             setView("inbox");
+          }}
         />
       ) : view === "destination" ? (
         <DestinationDetails
@@ -235,6 +255,12 @@ function App() {
           allTrips={trips} // Pass real trips
           myFriends={myFriends}
           onPlanTrip={() => setIsModalOpen(true)}
+          user={user}
+          onJoin={handleJoinTrip}
+          onMessageGroup={(tripId) => {
+             setActiveChatId(`trip_${tripId}`);
+             setView("inbox");
+          }}
         />
       ) : view === "my-trips" ? (
 
@@ -254,6 +280,10 @@ function App() {
               onDelete={handleDeleteTrip}
               onJoin={handleJoinTrip}
               user={user}
+              onMessageGroup={(tripId) => {
+                 setActiveChatId(`trip_${tripId}`);
+                 setView("inbox");
+              }}
             />
           ) : (
             <div className="text-center py-20 bg-gray-50 rounded-3xl border border-dashed border-gray-200">
@@ -280,10 +310,17 @@ function App() {
               category={selectedCategory}
               onJoin={handleJoinTrip}
               user={user}
+              onMessageGroup={(tripId) => {
+                 setActiveChatId(`trip_${tripId}`);
+                 setView("inbox");
+              }}
             />
 
             <TrendingDestinations />
-            <Features />
+            <Features onChatClick={() => {
+              setActiveChatId(null);
+              setView("inbox");
+            }} />
           </div>
         </>
       )}

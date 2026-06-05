@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { db } from '../config/firebase'; // Connect to database
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore'; // Firestore actions
+import { createTripGroupChat } from '../services/chatService';
 
 const TripWizard = ({ isOpen, onClose, user }) => {
   const [loading, setLoading] = useState(false);
@@ -49,7 +50,10 @@ const TripWizard = ({ isOpen, onClose, user }) => {
       };
 
       // Send to "trips" collection
-      await addDoc(collection(db, "trips"), newTrip);
+      const docRef = await addDoc(collection(db, "trips"), newTrip);
+      
+      // Auto-create Group Chat
+      await createTripGroupChat(docRef.id, formData.name, user, []);
       
       // Success!
       setFormData({ name: '', location: '', budget: '', dates: '', guests: '1' });

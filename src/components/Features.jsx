@@ -1,6 +1,6 @@
 import React from 'react';
 
-const Features = () => {
+const Features = ({ onChatClick }) => {
   return (
     <section className="py-16 px-4 max-w-7xl mx-auto">
       <div className="mb-10 text-center">
@@ -59,12 +59,15 @@ const Features = () => {
         </div>
 
         {/* Box 4: Wide Box - Chat */}
-        <div className="md:col-span-1 bg-white rounded-3xl p-6 border border-gray-200 shadow-sm flex items-center justify-between group cursor-pointer hover:shadow-md transition-all">
+        <div 
+          onClick={onChatClick}
+          className="md:col-span-1 bg-white rounded-3xl p-6 border border-gray-200 shadow-sm flex items-center justify-between group cursor-pointer hover:shadow-md transition-all"
+        >
            <div>
-             <h3 className="text-lg font-bold text-gray-900">Group Chat</h3>
-             <p className="text-xs text-green-500 font-bold">● 3 Online</p>
+             <h3 className="text-lg font-bold text-gray-900">Live Chat</h3>
+             <p className="text-xs text-indigo-500 font-bold">Connect instantly</p>
            </div>
-           <div className="bg-gray-100 p-3 rounded-full group-hover:bg-green-100 group-hover:text-green-600 transition-colors">
+           <div className="bg-gray-100 p-3 rounded-full group-hover:bg-indigo-100 group-hover:text-indigo-600 transition-colors">
              💬
            </div>
         </div>
