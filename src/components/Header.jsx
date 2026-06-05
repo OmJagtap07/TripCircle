@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 
 
-const Header = ({ user, onLoginClick, onLogout, onMyTripsClick, onProfileClick }) => {
+const Header = ({ user, onLoginClick, onLogout, onMyTripsClick, onProfileClick, onInboxClick }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [activeLink, setActiveLink] = useState(null);
 
@@ -112,12 +112,20 @@ const Header = ({ user, onLoginClick, onLogout, onMyTripsClick, onProfileClick }
             </button>
 
             {user && (
-              <button
-                onClick={() => { setActiveLink('profile'); onProfileClick?.(); setIsMenuOpen(false); }}
-                className={linkClass('profile')}
-              >
-                👤 Profile Settings
-              </button>
+              <>
+                <button
+                  onClick={() => { setActiveLink('inbox'); onInboxClick?.(); setIsMenuOpen(false); }}
+                  className={linkClass('inbox')}
+                >
+                  💬 Messages
+                </button>
+                <button
+                  onClick={() => { setActiveLink('profile'); onProfileClick?.(); setIsMenuOpen(false); }}
+                  className={linkClass('profile')}
+                >
+                  👤 Profile Settings
+                </button>
+              </>
             )}
 
             <button

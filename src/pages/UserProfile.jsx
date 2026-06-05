@@ -72,7 +72,7 @@ const EmptyState = ({ emoji, title, subtitle, actionLabel, onAction }) => (
 // ── Main component ─────────────────────────────────────────────────────────
 const TABS = ['Overview', 'Interested Plans', 'My Trips', 'Following'];
 
-const UserProfile = ({ user, trips, onBack, onPlanTrip, onJoin }) => {
+const UserProfile = ({ user, trips, onBack, onPlanTrip, onJoin, onMessageUser }) => {
     const [activeTab, setActiveTab] = useState('Overview');
 
     // Bio
@@ -383,12 +383,22 @@ const UserProfile = ({ user, trips, onBack, onPlanTrip, onJoin }) => {
                                                     <p className="text-xs text-gray-400 truncate">{fu.email || ''}</p>
                                                     {fu.bio && <p className="text-xs text-gray-500 mt-0.5 truncate italic">"{fu.bio}"</p>}
                                                 </div>
-                                                <button
-                                                    onClick={() => handleFollow(fu.uid)}
-                                                    className="shrink-0 text-xs text-red-500 font-bold border border-red-200 px-3 py-1.5 rounded-full hover:bg-red-50 transition-colors"
-                                                >
-                                                    Unfollow
-                                                </button>
+                                                <div className="flex gap-2 shrink-0">
+                                                    {onMessageUser && (
+                                                        <button
+                                                            onClick={() => onMessageUser(fu)}
+                                                            className="text-xs text-indigo-600 font-bold bg-indigo-50 px-3 py-1.5 rounded-full hover:bg-indigo-100 transition-colors"
+                                                        >
+                                                            Message
+                                                        </button>
+                                                    )}
+                                                    <button
+                                                        onClick={() => handleFollow(fu.uid)}
+                                                        className="text-xs text-red-500 font-bold border border-red-200 px-3 py-1.5 rounded-full hover:bg-red-50 transition-colors"
+                                                    >
+                                                        Unfollow
+                                                    </button>
+                                                </div>
                                             </div>
                                         ))}
                                     </div>

@@ -2,7 +2,7 @@ import React from 'react';
 import SpecialDeals from '../components/SpecialDeals'; 
 
 // 1. ADD 'onPlanTrip' TO THE PROPS HERE
-const DestinationDetails = ({ destinationName, onBack, allTrips, myFriends, onPlanTrip }) => {
+const DestinationDetails = ({ destinationName, onBack, allTrips, myFriends, onPlanTrip, user, onJoin, onMessageGroup }) => {
   
   // --- 1. THE MOCK DATABASE ---
   const destinationsDB = {
@@ -147,6 +147,9 @@ const DestinationDetails = ({ destinationName, onBack, allTrips, myFriends, onPl
             trips={relatedTrips} 
             myFriends={myFriends} 
             category="all" 
+            onJoin={onJoin}
+            user={user}
+            onMessageGroup={onMessageGroup} 
           />
           {relatedTrips.length === 0 && (
              <div className="p-8 text-center bg-gray-50 rounded-2xl border border-dashed border-gray-300">

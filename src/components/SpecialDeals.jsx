@@ -1,6 +1,6 @@
 import React from 'react';
 
-const SpecialDeals = ({ trips, myFriends, category, onDelete, onJoin, user }) => {
+const SpecialDeals = ({ trips, myFriends, category, onDelete, onJoin, user, onMessageGroup }) => {
   
   const getLayoutType = (trip) => {
     if (category !== 'all' && category !== 'my-trips') return category;
@@ -233,6 +233,19 @@ const SpecialDeals = ({ trips, myFriends, category, onDelete, onJoin, user }) =>
                 className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent"></div>
+
+              {trip.members?.includes(user?.uid) && onMessageGroup && (
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation(); 
+                    onMessageGroup(trip.id);
+                  }}
+                  className="absolute top-4 right-16 bg-indigo-600/90 backdrop-blur-md hover:bg-indigo-500 text-white px-3 py-1.5 text-xs font-bold rounded-full shadow-lg border border-indigo-400 transition-all z-20 hover:scale-105 flex items-center gap-1"
+                  title="Open Group Chat"
+                >
+                  <span className="text-[10px]">💬</span> Chat
+                </button>
+              )}
 
               <div className="absolute top-4 left-4 flex items-center space-x-2">
                 <img src={trip.avatar || `https://ui-avatars.com/api/?name=${trip.creatorName || 'User'}`} className="w-8 h-8 rounded-full border border-white" alt="user" />
