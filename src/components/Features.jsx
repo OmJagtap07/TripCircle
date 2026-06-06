@@ -1,6 +1,8 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 
-const Features = ({ onChatClick }) => {
+const Features = () => {
+  const navigate = useNavigate();
   return (
     <section className="py-16 px-4 max-w-7xl mx-auto">
       <div className="mb-10 text-center">
@@ -60,7 +62,7 @@ const Features = ({ onChatClick }) => {
 
         {/* Box 4: Wide Box - Chat */}
         <div 
-          onClick={onChatClick}
+          onClick={() => navigate('/inbox')}
           className="md:col-span-1 bg-white rounded-3xl p-6 border border-gray-200 shadow-sm flex items-center justify-between group cursor-pointer hover:shadow-md transition-all"
         >
            <div>

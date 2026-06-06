@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
+import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 
 // --- 1. FIREBASE IMPORTS ---
 import { auth, db, googleProvider, signInWithPopup, signOut } from './config/firebase';
 import { onAuthStateChanged } from "firebase/auth";
 import {
   collection,
-  addDoc,
-  updateDoc,
   deleteDoc,
   doc,
   setDoc,
@@ -31,17 +30,21 @@ import DestinationDetails from './pages/DestinationDetails';
 import TripAssistant from './components/TripAssistant';
 import UserProfile from './pages/UserProfile';
 import Inbox from './pages/Inbox';
+import ProtectedRoute from './components/ProtectedRoute';
+import TripDetails from './pages/TripDetails';
+import Trips from './pages/Trips';
+import Settings from './pages/Settings';
 import { getOrCreateDirectChat } from './services/chatService';
 
 function App() {
+  const navigate = useNavigate();
+  const location = useLocation();
+
   // --- STATE ---
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [user, setUser] = useState(null);
   const [showLogin, setShowLogin] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState("all");
-  const [view, setView] = useState("home");
-  const [searchedDestination, setSearchedDestination] = useState("");
-  const [activeChatId, setActiveChatId] = useState(null);
 
   // 🔥 UNIFIED DATA STATE (Holds ALL trips from Firebase)
   const [trips, setTrips] = useState([]);
@@ -106,15 +109,13 @@ function App() {
   const handleLogout = async () => {
     await signOut(auth);
     setUser(null);
-    setView("home");
+    navigate("/");
   };
 
   const handleDeleteTrip = async (tripId) => {
-    // 1. Find the trip name for the message
     const tripToDelete = trips.find(t => t.id === tripId);
     const tripName = tripToDelete ? tripToDelete.location : "this trip";
 
-    // 2. Stronger Confirmation Message
     if (window.confirm(`⚠️ WARNING: Are you sure you want to delete "${tripName}"?\n\nThis action cannot be undone and all member data will be lost.`)) {
       try {
         await deleteDoc(doc(db, "trips", tripId));
@@ -123,12 +124,6 @@ function App() {
         alert("Could not delete. Check console.");
       }
     }
-  };
-
-  const handleSearch = (term) => {
-    setSearchedDestination(term);
-    setView("destination");
-    window.scrollTo(0, 0);
   };
 
   // --- JOIN / LEAVE TOGGLE LOGIC ---
@@ -147,22 +142,18 @@ function App() {
       const batch = writeBatch(db);
 
       if (isJoined) {
-        // 1. LEAVE LOGIC (If already joined, remove them)
         if (window.confirm("Do you want to leave this trip? 😢")) {
           batch.update(tripRef, { members: arrayRemove(user.uid) });
           batch.update(chatRef, { participantIds: arrayRemove(user.uid) });
           await batch.commit();
-          // No alert needed, UI updates instantly
         }
       } else {
-        // 2. JOIN LOGIC (If not joined, add them)
         batch.update(tripRef, { members: arrayUnion(user.uid) });
         batch.update(chatRef, { 
           participantIds: arrayUnion(user.uid),
           [`participantsData.${user.uid}`]: { name: user.name, avatar: user.avatar || null }
         });
         await batch.commit();
-        // You can add a confetti effect here later if you want!
       }
 
     } catch (error) {
@@ -174,11 +165,10 @@ function App() {
   // --- FILTERING & MOCK DATA HELPERS ---
   const myFriends = ["Rohan", "Sarah", "Raj", "Simran", "Amit"];
 
-  const getFilteredTrips = () => {
+  const getFilteredTrips = (showMyTripsOnly = false) => {
     let data = trips;
 
-    // If viewing "My Trips", show trips I CREATED
-    if (view === "my-trips" && user) {
+    if (showMyTripsOnly && user) {
       return trips.filter(t => t.creatorId === user.uid);
     }
 
@@ -193,10 +183,8 @@ function App() {
   };
 
   const getSpotlightData = () => {
-    // Safety check: if trips haven't loaded yet, return null
     if (trips.length === 0) return null;
 
-    // We try to find trips that match the vibe, or default to the first few
     const friendsTrip = trips.find(t => t.tags.includes("Party")) || trips[0];
     const soloTrip = trips.find(t => t.tags.includes("Solo")) || trips[1];
     const budgetTrip = trips.find(t => t.tags.includes("Budget Friendly")) || trips[2];
@@ -217,120 +205,123 @@ function App() {
   // --- RENDER ---
   if (showLogin) return <Login onLogin={handleGoogleLogin} onBack={() => setShowLogin(false)} />;
 
-
   return (
     <div className="min-h-screen bg-white">
-
       <Header
         user={user}
         onLoginClick={() => setShowLogin(true)}
         onLogout={handleLogout}
-        onMyTripsClick={() => setView("my-trips")}
-        onProfileClick={() => user && setView("profile")}
-        onInboxClick={() => {
-          setActiveChatId(null);
-          setView("inbox");
-        }}
       />
 
-      {view === "inbox" && user ? (
-        <Inbox user={user} initialChatId={activeChatId} />
-      ) : view === "profile" && user ? (
-        <UserProfile
-          user={user}
-          trips={trips}
-          onBack={() => setView("home")}
-          onPlanTrip={() => setIsModalOpen(true)}
-          onJoin={handleJoinTrip}
-          onMessageUser={async (targetUser) => {
-             const chatId = await getOrCreateDirectChat(user, targetUser);
-             setActiveChatId(chatId);
-             setView("inbox");
-          }}
-        />
-      ) : view === "destination" ? (
-        <DestinationDetails
-          destinationName={searchedDestination}
-          onBack={() => setView("home")}
-          allTrips={trips} // Pass real trips
-          myFriends={myFriends}
-          onPlanTrip={() => setIsModalOpen(true)}
-          user={user}
-          onJoin={handleJoinTrip}
-          onMessageGroup={(tripId) => {
-             setActiveChatId(`trip_${tripId}`);
-             setView("inbox");
-          }}
-        />
-      ) : view === "my-trips" ? (
+      <Routes>
+        {/* --- HOME VIEW --- */}
+        <Route path="/" element={
+          <>
+            <Hero />
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-10 relative z-30 space-y-16 pb-20">
+              <Categories selectedCategory={selectedCategory} onSelectCategory={setSelectedCategory} />
+              {selectedCategory === 'all' && <MapTeaser />}
+              {selectedCategory !== 'all' && spotlightData && <CategorySpotlight {...spotlightData} />}
 
-        // --- MY TRIPS VIEW ---
-        <div className="max-w-7xl mx-auto px-4 py-10 min-h-[60vh]">
-          <button onClick={() => setView("home")} className="mb-6 text-gray-500 hover:text-orange-500 font-bold">← Back to Home</button>
-          <h1 className="text-3xl font-black text-gray-900 mb-2">My Trips ✈️</h1>
-          <p className="text-gray-500 mb-8">Itineraries you have created.</p>
+              <SpecialDeals
+                trips={getFilteredTrips(false)}
+                myFriends={myFriends}
+                category={selectedCategory}
+                onJoin={handleJoinTrip}
+                user={user}
+              />
 
-          {loading ? (
-            <div className="text-center py-20 text-gray-400 animate-pulse">Loading your adventures...</div>
-          ) : getFilteredTrips().length > 0 ? (
-            <SpecialDeals
-              trips={getFilteredTrips()}
-              myFriends={[]}
-              category="my-trips"
-              onDelete={handleDeleteTrip}
-              onJoin={handleJoinTrip}
-              user={user}
-              onMessageGroup={(tripId) => {
-                 setActiveChatId(`trip_${tripId}`);
-                 setView("inbox");
-              }}
-            />
-          ) : (
-            <div className="text-center py-20 bg-gray-50 rounded-3xl border border-dashed border-gray-200">
-              <p className="text-xl text-gray-400 font-bold mb-4">You haven't created any trips yet.</p>
-              <button onClick={() => setIsModalOpen(true)} className="bg-orange-600 text-white px-6 py-3 rounded-full font-bold hover:bg-orange-700 transition">
-                Plan your first trip now
-              </button>
+              <TrendingDestinations />
+              <Features />
             </div>
-          )}
-        </div>
+          </>
+        } />
 
-      ) : (
-        // --- HOME VIEW ---
-        <>
-          <Hero onSearch={handleSearch} />
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-10 relative z-30 space-y-16 pb-20">
-            <Categories selectedCategory={selectedCategory} onSelectCategory={setSelectedCategory} />
-            {selectedCategory === 'all' && <MapTeaser />}
-            {selectedCategory !== 'all' && spotlightData && <CategorySpotlight {...spotlightData} />}
+        <Route path="/destination/:name" element={
+          <DestinationDetails
+            allTrips={trips}
+            myFriends={myFriends}
+            onPlanTrip={() => setIsModalOpen(true)}
+            user={user}
+            onJoin={handleJoinTrip}
+          />
+        } />
 
-            <SpecialDeals
-              trips={getFilteredTrips()}
-              myFriends={myFriends}
-              category={selectedCategory}
-              onJoin={handleJoinTrip}
-              user={user}
-              onMessageGroup={(tripId) => {
-                 setActiveChatId(`trip_${tripId}`);
-                 setView("inbox");
-              }}
-            />
+        <Route path="/trips" element={<Trips />} />
+        
+        <Route path="/trip/:tripId" element={
+          <TripDetails 
+            trips={trips} 
+            user={user} 
+            onJoin={handleJoinTrip} 
+            onMessageGroup={(tripId) => navigate(`/inbox/trip_${tripId}`)}
+          />
+        } />
 
-            <TrendingDestinations />
-            <Features onChatClick={() => {
-              setActiveChatId(null);
-              setView("inbox");
-            }} />
-          </div>
-        </>
-      )}
+        <Route path="/my-trips" element={
+          <ProtectedRoute user={user}>
+            <div className="max-w-7xl mx-auto px-4 py-10 min-h-[60vh]">
+              <button onClick={() => navigate("/")} className="mb-6 text-gray-500 hover:text-orange-500 font-bold">← Back to Home</button>
+              <h1 className="text-3xl font-black text-gray-900 mb-2">My Trips ✈️</h1>
+              <p className="text-gray-500 mb-8">Itineraries you have created.</p>
+
+              {loading ? (
+                <div className="text-center py-20 text-gray-400 animate-pulse">Loading your adventures...</div>
+              ) : getFilteredTrips(true).length > 0 ? (
+                <SpecialDeals
+                  trips={getFilteredTrips(true)}
+                  myFriends={[]}
+                  category="my-trips"
+                  onDelete={handleDeleteTrip}
+                  onJoin={handleJoinTrip}
+                  user={user}
+                />
+              ) : (
+                <div className="text-center py-20 bg-gray-50 rounded-3xl border border-dashed border-gray-200">
+                  <p className="text-xl text-gray-400 font-bold mb-4">You haven't created any trips yet.</p>
+                  <button onClick={() => setIsModalOpen(true)} className="bg-orange-600 text-white px-6 py-3 rounded-full font-bold hover:bg-orange-700 transition">
+                    Plan your first trip now
+                  </button>
+                </div>
+              )}
+            </div>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/profile/:uid" element={
+          <UserProfile
+            currentUser={user}
+            trips={trips}
+            onPlanTrip={() => setIsModalOpen(true)}
+            onJoin={handleJoinTrip}
+          />
+        } />
+
+        <Route path="/inbox" element={
+          <ProtectedRoute user={user}>
+            <Inbox user={user} />
+          </ProtectedRoute>
+        } />
+        
+        <Route path="/inbox/:chatId" element={
+          <ProtectedRoute user={user}>
+            <Inbox user={user} />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/settings" element={
+          <ProtectedRoute user={user}>
+            <Settings />
+          </ProtectedRoute>
+        } />
+      </Routes>
 
       {/* MODALS & FLOATING BUTTONS */}
       <TripWizard isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} user={user} />
 
       <TripAssistant />
 
-      {view !== "my-trips" && (
+      {location.pathname !== "/my-trips" && (
         <button onClick={() => user ? setIsModalOpen(true) : setShowLogin(true)} className="fixed bottom-8 right-8 z-50 bg-white shadow-2xl rounded-full px-6 py-3 flex items-center space-x-2 border border-orange-100 hover:scale-105 transition-transform">
           <span className="text-orange-500 font-bold">{user ? "✈️ Plan Your Trip" : "🔒 Login to Plan"}</span>
         </button>

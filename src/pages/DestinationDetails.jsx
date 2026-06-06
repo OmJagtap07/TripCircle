@@ -1,8 +1,12 @@
 import React from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import SpecialDeals from '../components/SpecialDeals'; 
 
 // 1. ADD 'onPlanTrip' TO THE PROPS HERE
-const DestinationDetails = ({ destinationName, onBack, allTrips, myFriends, onPlanTrip, user, onJoin, onMessageGroup }) => {
+const DestinationDetails = ({ allTrips, myFriends, onPlanTrip, user, onJoin, onMessageGroup }) => {
+  const { name: destinationName } = useParams();
+  const navigate = useNavigate();
+  const onBack = () => navigate(-1);
   
   // --- 1. THE MOCK DATABASE ---
   const destinationsDB = {

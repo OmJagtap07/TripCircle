@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { subscribeToUserChats } from '../services/chatService';
 import ChatWindow from '../components/ChatWindow';
 
-const Inbox = ({ user, initialChatId }) => {
+const Inbox = ({ user }) => {
+  const { chatId } = useParams();
+  const navigate = useNavigate();
   const [chats, setChats] = useState([]);
   const [selectedChat, setSelectedChat] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -14,15 +17,17 @@ const Inbox = ({ user, initialChatId }) => {
       setChats(fetchedChats);
       setLoading(false);
       
-      // If we passed an initialChatId and haven't selected a chat yet, select it.
-      if (initialChatId && !selectedChat) {
-        const targetChat = fetchedChats.find(c => c.id === initialChatId);
+      // If we passed a chatId and haven't selected a chat yet, select it.
+      if (chatId) {
+        const targetChat = fetchedChats.find(c => c.id === chatId);
         if (targetChat) setSelectedChat(targetChat);
+      } else {
+        setSelectedChat(null);
       }
     });
 
     return () => unsubscribe();
-  }, [user?.uid, initialChatId, selectedChat]);
+  }, [user?.uid, chatId]);
 
   const renderChatPreview = (chat) => {
     let title = "Chat";
@@ -48,7 +53,7 @@ const Inbox = ({ user, initialChatId }) => {
     return (
       <button
         key={chat.id}
-        onClick={() => setSelectedChat(chat)}
+        onClick={() => navigate(`/inbox/${chat.id}`)}
         className={`w-full text-left flex items-center gap-3 p-4 border-b border-gray-100 transition-colors ${
           isActive ? 'bg-orange-50 border-l-4 border-l-orange-500' : 'hover:bg-gray-50'
         }`}
@@ -96,7 +101,7 @@ const Inbox = ({ user, initialChatId }) => {
             <div className="flex-1 p-4 h-full">
               <div className="md:hidden mb-2">
                 <button 
-                  onClick={() => setSelectedChat(null)}
+                  onClick={() => navigate('/inbox')}
                   className="text-sm font-bold text-gray-500 hover:text-gray-900 flex items-center gap-1"
                 >
                   ← Back to Inbox
