@@ -1,15 +1,22 @@
 import React, { useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 
-
-const Header = ({ user, onLoginClick, onLogout, onMyTripsClick, onProfileClick, onInboxClick }) => {
+const Header = ({ user, onLoginClick, onLogout }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [activeLink, setActiveLink] = useState(null);
+  const navigate = useNavigate();
 
   const linkClass = (name) =>
     `flex items-center gap-3 w-full text-left p-3 rounded-xl transition-all font-semibold text-sm ${activeLink === name
       ? 'bg-indigo-50 text-indigo-700 border-l-4 border-indigo-500'
       : 'text-gray-600 hover:bg-indigo-50 hover:text-indigo-700'
     }`;
+
+  const handleNavigation = (path, name) => {
+    setActiveLink(name);
+    setIsMenuOpen(false);
+    navigate(path);
+  };
 
   return (
     <>
@@ -28,14 +35,14 @@ const Header = ({ user, onLoginClick, onLogout, onMyTripsClick, onProfileClick, 
             </svg>
           </button>
 
-          <div className="flex items-center space-x-3 cursor-pointer" onClick={() => window.location.reload()}>
+          <Link to="/" className="flex items-center space-x-3 cursor-pointer">
             <img
               src="/Falcon.jpg"
               alt="TripCircle Logo"
               className="w-10 h-10 rounded-full object-cover shadow-sm border border-gray-200"
             />
             <h1 className="text-xl font-black tracking-tight text-gray-900">TripCircle</h1>
-          </div>
+          </Link>
         </div>
 
         {/* Right: Quick user actions */}
@@ -45,7 +52,7 @@ const Header = ({ user, onLoginClick, onLogout, onMyTripsClick, onProfileClick, 
               <p className="text-sm font-bold text-gray-900 hidden md:block">{user.name}</p>
 
               <button
-                onClick={onProfileClick}
+                onClick={() => navigate(`/profile/${user.uid}`)}
                 className="h-10 w-10 rounded-full bg-orange-100 p-0.5 border-2 border-orange-300 shadow-sm overflow-hidden hover:border-orange-500 transition-colors"
                 title="View Profile"
               >
@@ -105,22 +112,29 @@ const Header = ({ user, onLoginClick, onLogout, onMyTripsClick, onProfileClick, 
           {/* Nav links */}
           <nav className="flex flex-col gap-2 text-sm font-semibold flex-1">
             <button
-              onClick={() => { setActiveLink('trips'); onMyTripsClick?.(); setIsMenuOpen(false); }}
+              onClick={() => handleNavigation('/my-trips', 'trips')}
               className={linkClass('trips')}
             >
               ✈️ My Itineraries
+            </button>
+            
+            <button
+              onClick={() => handleNavigation('/trips', 'all-trips')}
+              className={linkClass('all-trips')}
+            >
+              🌍 All Trips
             </button>
 
             {user && (
               <>
                 <button
-                  onClick={() => { setActiveLink('inbox'); onInboxClick?.(); setIsMenuOpen(false); }}
+                  onClick={() => handleNavigation('/inbox', 'inbox')}
                   className={linkClass('inbox')}
                 >
                   💬 Messages
                 </button>
                 <button
-                  onClick={() => { setActiveLink('profile'); onProfileClick?.(); setIsMenuOpen(false); }}
+                  onClick={() => handleNavigation(`/profile/${user.uid}`, 'profile')}
                   className={linkClass('profile')}
                 >
                   👤 Profile Settings
@@ -129,14 +143,14 @@ const Header = ({ user, onLoginClick, onLogout, onMyTripsClick, onProfileClick, 
             )}
 
             <button
-              onClick={() => setActiveLink('saved')}
+              onClick={() => handleNavigation('/settings', 'saved')}
               className={linkClass('saved')}
             >
               ❤️ Saved Deals
             </button>
 
             <button
-              onClick={() => setActiveLink('community')}
+              onClick={() => handleNavigation('/settings', 'community')}
               className={linkClass('community')}
             >
               🌍 Campus Community

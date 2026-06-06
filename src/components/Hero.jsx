@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 // 1. I HAVE PUT THE DATA BACK HERE!
 const slides = [
@@ -24,7 +25,8 @@ const slides = [
   }
 ];
 
-const Hero = ({ onSearch }) => {
+const Hero = () => {
+  const navigate = useNavigate();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [searchText, setSearchText] = useState("");
 
@@ -40,11 +42,7 @@ const Hero = ({ onSearch }) => {
   // Search Logic
   const handleSearchAction = () => {
     if (searchText.trim()) {
-      if (onSearch) {
-        onSearch(searchText);
-      } else {
-        console.warn("onSearch prop is missing in Hero component");
-      }
+      navigate(`/destination/${encodeURIComponent(searchText.trim())}`);
     }
   };
 

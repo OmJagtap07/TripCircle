@@ -1,6 +1,8 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const SpecialDeals = ({ trips, myFriends, category, onDelete, onJoin, user, onMessageGroup }) => {
+  const navigate = useNavigate();
   
   const getLayoutType = (trip) => {
     if (category !== 'all' && category !== 'my-trips') return category;
@@ -225,6 +227,7 @@ const SpecialDeals = ({ trips, myFriends, category, onDelete, onJoin, user, onMe
           {trips.map((trip) => (
             <div 
               key={trip.id} 
+              onClick={() => navigate(`/trip/${trip.id}`)}
               className="relative group overflow-hidden rounded-2xl cursor-pointer shadow-md hover:shadow-xl transition-all h-full"
             >
               <img 
