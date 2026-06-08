@@ -21,7 +21,7 @@ const Header = ({ user, onLoginClick, onLogout }) => {
   return (
     <>
       {/* ── Main Top Header ── */}
-      <header className="h-20 bg-white/80 backdrop-blur-md flex items-center justify-between px-6 lg:px-12 sticky top-0 z-30 border-b border-gray-100/50">
+      <header className="h-20 bg-white/80 backdrop-blur-md flex items-center justify-between px-6 lg:px-12 sticky top-0 z-40 border-b border-gray-100/50">
 
         {/* Left: Hamburger + Logo */}
         <div className="flex items-center gap-4">
