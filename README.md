@@ -4,6 +4,8 @@
 
 🌐 **Live Demo → [tripcircle.netlify.app](https://tripcircle.netlify.app/)**
 
+📖 **Technical Details → [Architecture & Engineering Decisions](PROJECT_ARCHITECTURE_AND_DECISIONS.md)**
+
 ---
 
 ## 🚀 Features
