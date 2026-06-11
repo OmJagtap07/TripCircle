@@ -34,6 +34,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import TripDetails from './pages/TripDetails';
 import Trips from './pages/Trips';
 import Settings from './pages/Settings';
+import InteractiveMap from './pages/InteractiveMap';
 import { getOrCreateDirectChat } from './services/chatService';
 
 function App() {
@@ -248,6 +249,15 @@ function App() {
         } />
 
         <Route path="/trips" element={<Trips />} />
+
+        <Route path="/map" element={
+          <InteractiveMap
+            trips={trips}
+            loading={loading}
+            user={user}
+            onJoin={handleJoinTrip}
+          />
+        } />
         
         <Route path="/trip/:tripId" element={
           <TripDetails 

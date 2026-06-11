@@ -125,6 +125,13 @@ const Header = ({ user, onLoginClick, onLogout }) => {
               🌍 All Trips
             </button>
 
+            <button
+              onClick={() => handleNavigation('/map', 'map')}
+              className={linkClass('map')}
+            >
+              🗺️ Interactive Map
+            </button>
+
             {user && (
               <>
                 <button

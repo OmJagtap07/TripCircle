@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { db } from '../config/firebase'; // Connect to database
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore'; // Firestore actions
 import { createTripGroupChat } from '../services/chatService';
+import { fetchCoordinates } from '../utils/geocode';
 
 const TripWizard = ({ isOpen, onClose, user }) => {
   const [loading, setLoading] = useState(false);
@@ -32,6 +33,9 @@ const TripWizard = ({ isOpen, onClose, user }) => {
     try {
       setLoading(true);
 
+      // Fetch coordinates automatically
+      const coords = await fetchCoordinates(formData.location);
+
       // Create the trip object
       const newTrip = {
         name: formData.name,
@@ -45,6 +49,8 @@ const TripWizard = ({ isOpen, onClose, user }) => {
         creatorName: user.name || "Anonymous",
         members: [user.uid], // You are the first member
         tags: ["Community"], // Default tag (we can make this dynamic later)
+        
+        ...(coords && { coordinates: coords }), // Add coordinates if found
         
         createdAt: serverTimestamp()
       };
