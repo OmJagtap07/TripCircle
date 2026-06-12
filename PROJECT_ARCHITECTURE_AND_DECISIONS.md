@@ -23,6 +23,7 @@ Travelers looking for solo adventures, budget getaways, group tours, or friend o
 - **Integrated Chat (Inbox):** Direct messaging and group chats tied specifically to trips.
 - **AI Trip Assistant:** Google Gemini-powered floating chat widget for travel tips.
 - **Interactive Map:** Leaflet map integration to preview destinations.
+- **Auto-Geocoding:** Automatic fetching of trip coordinates via Nominatim API.
 - **User Profiles & My Trips:** Dashboards to manage created and joined trips.
 
 ### Future scope and planned enhancements:
@@ -107,6 +108,11 @@ sequenceDiagram
 - **Version:** `^4.1.18`
 - **Why it was chosen:** Utility-first CSS framework that allows rapid UI development directly within JSX without context switching to CSS files.
 - **Alternatives considered:** SCSS, Styled-Components.
+
+### Nominatim (OpenStreetMap) API
+- **Why it was chosen:** 100% free Geocoding API that requires no API key or account, aligning perfectly with the Leaflet map data constraints.
+- **Alternatives considered:** Google Maps Geocoding API, Mapbox Geocoding API.
+- **Trade-offs:** Strict usage policy of 1 request per second. Needs intentional rate limiting in the application code.
 
 ---
 
@@ -196,8 +202,8 @@ sequenceDiagram
 - **Why:** Stores core identity. Used to hydrate user profiles.
 
 #### 2. `trips`
-- **Fields:** `name`, `location`, `budget`, `dateRange`, `guests`, `creatorId`, `creatorName`, `members` (Array of UIDs), `tags`, `createdAt`
-- **Why:** Represents a travel itinerary. The `members` array is critical for checking who has joined.
+- **Fields:** `name`, `location`, `coordinates` (Map: `{ lat, lng }`), `budget`, `dateRange`, `guests`, `creatorId`, `creatorName`, `members` (Array of UIDs), `tags`, `createdAt`
+- **Why:** Represents a travel itinerary. The `members` array is critical for checking who has joined. `coordinates` are used for map visualization.
 
 #### 3. `chats`
 - **Fields:** `type` (group/direct), `tripId`, `participantIds` (Array of UIDs), `participantsData` (Map of denormalized user objects), `lastMessage`, `updatedAt`
@@ -219,6 +225,12 @@ sequenceDiagram
 | `createTripGroupChat` | Creates a group chat upon trip creation | `tripId`, `tripName`, `creatorData` | Must be authenticated |
 | `sendMessage` | Writes to `messages` subcollection & updates `lastMessage` | `chatId`, `senderData`, `messageText` | User UID must be in `participantIds` |
 | `subscribeToUserChats` | Real-time listener for the user's inbox | `userId`, `callback` | User UID must be in `participantIds` |
+
+### Geocoding Utility (`src/utils/geocode.js`)
+
+| Function | Purpose | Inputs | Notes |
+|----------|---------|--------|-------|
+| `geocodeLocation` | Fetches `lat` and `lng` for a location string | `locationName` (string) | Uses OpenStreetMap Nominatim. Fails gracefully. |
 
 ---
 
@@ -302,6 +314,12 @@ Sensitive keys (Firebase API keys, Gemini API keys) are stored securely in Netli
 - **Why:** Immediate real-time sync capabilities and zero server maintenance.
 - **Trade-off:** Exposes database logic to the client. Business logic is mixed with UI logic.
 - **When to change:** If complex server-side validations, cron jobs, or integration with payment gateways (Stripe) are needed, an intermediary Node.js server will be required.
+
+### Decision 3: Rate-Limited Admin UI Tool for Data Migration
+- **Scenario:** Migrating existing trips to include `coordinates` using the Nominatim API.
+- **Why:** Nominatim enforces a strict limit of 1 request per second. We created a dedicated Admin UI route (`/admin/tools/geocode-migration`) with a 1.5-second loop delay between fetch calls.
+- **Trade-off:** Migration runs in the browser and takes longer.
+- **Alternatives considered:** Firebase Cloud Functions (requires paid plan), One-time Node script (requires service accounts), Auto-migrate on page load (would trigger API bans).
 
 ---
 
