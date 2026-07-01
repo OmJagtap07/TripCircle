@@ -10,7 +10,11 @@ import {
   doc,
   setDoc,
   onSnapshot,
-  writeBatch
+  writeBatch,
+  query,
+  where,
+  documentId,
+  getDocs
 } from "firebase/firestore";
 
 // --- COMPONENT IMPORTS ---
@@ -47,11 +51,11 @@ function App() {
   const [showLogin, setShowLogin] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState("all");
 
-  // 🔥 UNIFIED DATA STATE (Holds ALL trips from Firebase)
-  const [rawTrips, setRawTrips] = useState([]);
-  const [tripMembersMap, setTripMembersMap] = useState({});
+  // 🔥 UNIFIED DATA STATE
+  const [tripsMap, setTripsMap] = useState(new Map());
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [joinedTripIds, setJoinedTripIds] = useState([]);
 
   // --- 1. INITIALIZE & FETCH DATA ---
   React.useEffect(() => {
@@ -66,49 +70,105 @@ function App() {
         });
       } else {
         setUser(null);
+        setTripsMap(new Map()); // clear private trips on logout
       }
     });
 
-    // B. Real-time Database Listener for Trips
-    const qTrips = collection(db, "trips");
-    const unsubscribeTrips = onSnapshot(qTrips, (snapshot) => {
-      const tripsData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        img: doc.data().img || "https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?q=80&w=800",
-        tags: doc.data().tags || ["Community"]
-      }));
-      setRawTrips(tripsData);
-    });
-      
-    // C. Real-time Database Listener for Members
-    const qMembers = collection(db, "tripMembers");
-    const unsubscribeMembers = onSnapshot(qMembers, (memberSnap) => {
-      const membersByTrip = {};
-      memberSnap.forEach(doc => {
-        const { tripId, userId } = doc.data();
-        if (!membersByTrip[tripId]) membersByTrip[tripId] = [];
-        membersByTrip[tripId].push(userId);
+    // B. Public Feed Listener
+    const qPublic = query(collection(db, "trips"), where("visibility", "in", ["public", "followers"]));
+    const unsubscribePublic = onSnapshot(qPublic, (snapshot) => {
+      setTripsMap(prev => {
+        const next = new Map(prev);
+        snapshot.docs.forEach(doc => {
+          next.set(doc.id, { id: doc.id, ...doc.data(), img: doc.data().img || "https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?q=80&w=800", tags: doc.data().tags || ["Community"] });
+        });
+        return next;
       });
-      setTripMembersMap(membersByTrip);
+      setLoading(false);
     });
 
     return () => {
       unsubscribeAuth();
-      unsubscribeTrips();
-      unsubscribeMembers();
+      unsubscribePublic();
     };
   }, []);
 
-  // --- Merge Data Safely ---
+  // C. My Created Trips & My Joined Memberships (Triggers when user changes)
   React.useEffect(() => {
-    const mergedTrips = rawTrips.map(trip => ({
-      ...trip,
-      members: tripMembersMap[trip.id] || []
-    }));
-    setTrips(mergedTrips);
-    setLoading(false);
-  }, [rawTrips, tripMembersMap]);
+    if (!user) {
+      setJoinedTripIds([]);
+      return;
+    }
+
+    // 1. My Created Trips Listener
+    const qMyTrips = query(collection(db, "trips"), where("creatorId", "==", user.uid));
+    const unsubscribeMyTrips = onSnapshot(qMyTrips, (snapshot) => {
+      setTripsMap(prev => {
+        const next = new Map(prev);
+        snapshot.docs.forEach(doc => {
+          next.set(doc.id, { id: doc.id, ...doc.data(), img: doc.data().img || "https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?q=80&w=800", tags: doc.data().tags || ["Community"] });
+        });
+        return next;
+      });
+    });
+
+    // 2. My Joined Memberships Listener
+    const qMyMemberships = query(collection(db, "tripMembers"), where("userId", "==", user.uid));
+    const unsubscribeMyMemberships = onSnapshot(qMyMemberships, (snapshot) => {
+      const ids = snapshot.docs.map(doc => doc.data().tripId);
+      setJoinedTripIds(ids);
+    });
+
+    return () => {
+      unsubscribeMyTrips();
+      unsubscribeMyMemberships();
+    };
+  }, [user]);
+
+  // D. Fetch My Joined Trips (Triggers when joinedTripIds changes)
+  React.useEffect(() => {
+    if (!joinedTripIds.length) return;
+
+    const fetchJoinedTrips = async () => {
+      try {
+        const chunks = [];
+        for (let i = 0; i < joinedTripIds.length; i += 10) {
+          chunks.push(joinedTripIds.slice(i, i + 10));
+        }
+
+        const newJoinedTrips = [];
+        for (const chunk of chunks) {
+          const q = query(collection(db, "trips"), where(documentId(), "in", chunk));
+          const snap = await getDocs(q);
+          snap.forEach(doc => {
+            newJoinedTrips.push({ id: doc.id, ...doc.data(), img: doc.data().img || "https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?q=80&w=800", tags: doc.data().tags || ["Community"] });
+          });
+        }
+
+        setTripsMap(prev => {
+          const next = new Map(prev);
+          newJoinedTrips.forEach(trip => {
+            next.set(trip.id, trip);
+          });
+          return next;
+        });
+      } catch (error) {
+        console.error("Error fetching joined trips:", error);
+      }
+    };
+
+    fetchJoinedTrips();
+  }, [joinedTripIds]);
+
+  // E. Derive Trips Array & Decorate Members
+  React.useEffect(() => {
+    // Convert Map to Array. Decorate with a pseudo-members array so user-joined checks work.
+    const tripsArray = Array.from(tripsMap.values()).map(t => {
+      const members = joinedTripIds.includes(t.id) ? [user?.uid] : [];
+      return { ...t, members };
+    });
+    setTrips(tripsArray);
+  }, [tripsMap, joinedTripIds, user]);
 
   // --- 2. HANDLERS ---
   const handleGoogleLogin = async () => {
