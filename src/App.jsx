@@ -9,10 +9,12 @@ import {
   deleteDoc,
   doc,
   setDoc,
-  arrayUnion,
   onSnapshot,
-  arrayRemove,
-  writeBatch
+  writeBatch,
+  query,
+  where,
+  documentId,
+  getDocs
 } from "firebase/firestore";
 
 // --- COMPONENT IMPORTS ---
@@ -35,7 +37,9 @@ import TripDetails from './pages/TripDetails';
 import Trips from './pages/Trips';
 import Settings from './pages/Settings';
 import InteractiveMap from './pages/InteractiveMap';
+import Notifications from './pages/Notifications';
 import { getOrCreateDirectChat } from './services/chatService';
+import { addTripMember, removeTripMember } from './services/tripService';
 
 function App() {
   const navigate = useNavigate();
@@ -47,9 +51,11 @@ function App() {
   const [showLogin, setShowLogin] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState("all");
 
-  // 🔥 UNIFIED DATA STATE (Holds ALL trips from Firebase)
+  // 🔥 UNIFIED DATA STATE
+  const [tripsMap, setTripsMap] = useState(new Map());
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [joinedTripIds, setJoinedTripIds] = useState([]);
 
   // --- 1. INITIALIZE & FETCH DATA ---
   React.useEffect(() => {
@@ -64,28 +70,105 @@ function App() {
         });
       } else {
         setUser(null);
+        setTripsMap(new Map()); // clear private trips on logout
       }
     });
 
-    // B. Real-time Database Listener
-    const q = collection(db, "trips");
-    const unsubscribeTrips = onSnapshot(q, (snapshot) => {
-      const tripsData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        img: doc.data().img || "https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?q=80&w=800",
-        tags: doc.data().tags || ["Community"],
-        members: doc.data().members || []
-      }));
-      setTrips(tripsData);
+    // B. Public Feed Listener
+    const qPublic = query(collection(db, "trips"), where("visibility", "in", ["public", "followers"]));
+    const unsubscribePublic = onSnapshot(qPublic, (snapshot) => {
+      setTripsMap(prev => {
+        const next = new Map(prev);
+        snapshot.docs.forEach(doc => {
+          next.set(doc.id, { id: doc.id, ...doc.data(), img: doc.data().img || "https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?q=80&w=800", tags: doc.data().tags || ["Community"] });
+        });
+        return next;
+      });
       setLoading(false);
     });
 
     return () => {
       unsubscribeAuth();
-      unsubscribeTrips();
+      unsubscribePublic();
     };
   }, []);
+
+  // C. My Created Trips & My Joined Memberships (Triggers when user changes)
+  React.useEffect(() => {
+    if (!user) {
+      setJoinedTripIds([]);
+      return;
+    }
+
+    // 1. My Created Trips Listener
+    const qMyTrips = query(collection(db, "trips"), where("creatorId", "==", user.uid));
+    const unsubscribeMyTrips = onSnapshot(qMyTrips, (snapshot) => {
+      setTripsMap(prev => {
+        const next = new Map(prev);
+        snapshot.docs.forEach(doc => {
+          next.set(doc.id, { id: doc.id, ...doc.data(), img: doc.data().img || "https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?q=80&w=800", tags: doc.data().tags || ["Community"] });
+        });
+        return next;
+      });
+    });
+
+    // 2. My Joined Memberships Listener
+    const qMyMemberships = query(collection(db, "tripMembers"), where("userId", "==", user.uid));
+    const unsubscribeMyMemberships = onSnapshot(qMyMemberships, (snapshot) => {
+      const ids = snapshot.docs.map(doc => doc.data().tripId);
+      setJoinedTripIds(ids);
+    });
+
+    return () => {
+      unsubscribeMyTrips();
+      unsubscribeMyMemberships();
+    };
+  }, [user]);
+
+  // D. Fetch My Joined Trips (Triggers when joinedTripIds changes)
+  React.useEffect(() => {
+    if (!joinedTripIds.length) return;
+
+    const fetchJoinedTrips = async () => {
+      try {
+        const chunks = [];
+        for (let i = 0; i < joinedTripIds.length; i += 10) {
+          chunks.push(joinedTripIds.slice(i, i + 10));
+        }
+
+        const newJoinedTrips = [];
+        for (const chunk of chunks) {
+          const q = query(collection(db, "trips"), where(documentId(), "in", chunk));
+          const snap = await getDocs(q);
+          snap.forEach(doc => {
+            newJoinedTrips.push({ id: doc.id, ...doc.data(), img: doc.data().img || "https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?q=80&w=800", tags: doc.data().tags || ["Community"] });
+          });
+        }
+
+        setTripsMap(prev => {
+          const next = new Map(prev);
+          newJoinedTrips.forEach(trip => {
+            next.set(trip.id, trip);
+          });
+          return next;
+        });
+      } catch (error) {
+        console.error("Error fetching joined trips:", error);
+      }
+    };
+
+    fetchJoinedTrips();
+  }, [joinedTripIds]);
+
+  // E. Derive Trips Array & Decorate Members
+  React.useEffect(() => {
+    // Convert Map to Array. Decorate with a pseudo-members array so user-joined checks work.
+    const tripsArray = Array.from(tripsMap.values()).map(t => {
+      const members = joinedTripIds.includes(t.id) ? [user?.uid] : [];
+      return { ...t, members };
+    });
+    setTrips(tripsArray);
+  }, [tripsMap, joinedTripIds, user]);
 
   // --- 2. HANDLERS ---
   const handleGoogleLogin = async () => {
@@ -138,23 +221,33 @@ function App() {
     try {
       const targetTrip = trips.find(t => t.id === tripId);
       const isJoined = targetTrip?.members?.includes(user.uid);
-      const tripRef = doc(db, "trips", tripId);
-      const chatRef = doc(db, "chats", `trip_${tripId}`);
-      const batch = writeBatch(db);
-
+      
       if (isJoined) {
         if (window.confirm("Do you want to leave this trip? 😢")) {
-          batch.update(tripRef, { members: arrayRemove(user.uid) });
-          batch.update(chatRef, { participantIds: arrayRemove(user.uid) });
-          await batch.commit();
+          await removeTripMember(tripId, user.uid);
+          
+          // Remove from chat
+          const chatRef = doc(db, "chats", `trip_${tripId}`);
+          // We still use arrayRemove for chats as per existing chat architecture
+          const { arrayRemove } = await import('firebase/firestore');
+          await setDoc(chatRef, { participantIds: arrayRemove(user.uid) }, { merge: true });
         }
       } else {
-        batch.update(tripRef, { members: arrayUnion(user.uid) });
-        batch.update(chatRef, { 
+        // Check visibility
+        if (targetTrip?.visibility === 'invite') {
+           alert("This is an invite-only trip. You need an invitation to join.");
+           return;
+        }
+        
+        await addTripMember(tripId, user.uid, 'member');
+        
+        // Add to chat
+        const chatRef = doc(db, "chats", `trip_${tripId}`);
+        const { arrayUnion } = await import('firebase/firestore');
+        await setDoc(chatRef, { 
           participantIds: arrayUnion(user.uid),
           [`participantsData.${user.uid}`]: { name: user.name, avatar: user.avatar || null }
-        });
-        await batch.commit();
+        }, { merge: true });
       }
 
     } catch (error) {
@@ -167,10 +260,20 @@ function App() {
   const myFriends = ["Rohan", "Sarah", "Raj", "Simran", "Amit"];
 
   const getFilteredTrips = (showMyTripsOnly = false) => {
-    let data = trips;
+    // 1. Base visibility filter
+    let data = trips.filter(trip => {
+      if (!trip.visibility || trip.visibility === 'public') return true;
+      if (user && trip.creatorId === user.uid) return true;
+      if (trip.visibility === 'invite') {
+        return user && trip.members && trip.members.includes(user.uid);
+      }
+      // For 'followers' visibility, we could ideally check following list, 
+      // but keeping it simple: allow them to see it in UI but they can't join if not a follower.
+      return true; 
+    });
 
     if (showMyTripsOnly && user) {
-      return trips.filter(t => t.creatorId === user.uid);
+      return data.filter(t => t.creatorId === user.uid);
     }
 
     switch (selectedCategory) {
@@ -322,6 +425,12 @@ function App() {
         <Route path="/settings" element={
           <ProtectedRoute user={user}>
             <Settings />
+          </ProtectedRoute>
+        } />
+        
+        <Route path="/notifications" element={
+          <ProtectedRoute user={user}>
+            <Notifications user={user} />
           </ProtectedRoute>
         } />
       </Routes>
