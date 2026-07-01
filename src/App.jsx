@@ -9,9 +9,7 @@ import {
   deleteDoc,
   doc,
   setDoc,
-  arrayUnion,
   onSnapshot,
-  arrayRemove,
   writeBatch
 } from "firebase/firestore";
 
@@ -35,7 +33,9 @@ import TripDetails from './pages/TripDetails';
 import Trips from './pages/Trips';
 import Settings from './pages/Settings';
 import InteractiveMap from './pages/InteractiveMap';
+import Notifications from './pages/Notifications';
 import { getOrCreateDirectChat } from './services/chatService';
+import { addTripMember, removeTripMember } from './services/tripService';
 
 function App() {
   const navigate = useNavigate();
@@ -48,6 +48,8 @@ function App() {
   const [selectedCategory, setSelectedCategory] = useState("all");
 
   // 🔥 UNIFIED DATA STATE (Holds ALL trips from Firebase)
+  const [rawTrips, setRawTrips] = useState([]);
+  const [tripMembersMap, setTripMembersMap] = useState({});
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -67,25 +69,46 @@ function App() {
       }
     });
 
-    // B. Real-time Database Listener
-    const q = collection(db, "trips");
-    const unsubscribeTrips = onSnapshot(q, (snapshot) => {
+    // B. Real-time Database Listener for Trips
+    const qTrips = collection(db, "trips");
+    const unsubscribeTrips = onSnapshot(qTrips, (snapshot) => {
       const tripsData = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
         img: doc.data().img || "https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?q=80&w=800",
-        tags: doc.data().tags || ["Community"],
-        members: doc.data().members || []
+        tags: doc.data().tags || ["Community"]
       }));
-      setTrips(tripsData);
-      setLoading(false);
+      setRawTrips(tripsData);
+    });
+      
+    // C. Real-time Database Listener for Members
+    const qMembers = collection(db, "tripMembers");
+    const unsubscribeMembers = onSnapshot(qMembers, (memberSnap) => {
+      const membersByTrip = {};
+      memberSnap.forEach(doc => {
+        const { tripId, userId } = doc.data();
+        if (!membersByTrip[tripId]) membersByTrip[tripId] = [];
+        membersByTrip[tripId].push(userId);
+      });
+      setTripMembersMap(membersByTrip);
     });
 
     return () => {
       unsubscribeAuth();
       unsubscribeTrips();
+      unsubscribeMembers();
     };
   }, []);
+
+  // --- Merge Data Safely ---
+  React.useEffect(() => {
+    const mergedTrips = rawTrips.map(trip => ({
+      ...trip,
+      members: tripMembersMap[trip.id] || []
+    }));
+    setTrips(mergedTrips);
+    setLoading(false);
+  }, [rawTrips, tripMembersMap]);
 
   // --- 2. HANDLERS ---
   const handleGoogleLogin = async () => {
@@ -138,23 +161,33 @@ function App() {
     try {
       const targetTrip = trips.find(t => t.id === tripId);
       const isJoined = targetTrip?.members?.includes(user.uid);
-      const tripRef = doc(db, "trips", tripId);
-      const chatRef = doc(db, "chats", `trip_${tripId}`);
-      const batch = writeBatch(db);
-
+      
       if (isJoined) {
         if (window.confirm("Do you want to leave this trip? 😢")) {
-          batch.update(tripRef, { members: arrayRemove(user.uid) });
-          batch.update(chatRef, { participantIds: arrayRemove(user.uid) });
-          await batch.commit();
+          await removeTripMember(tripId, user.uid);
+          
+          // Remove from chat
+          const chatRef = doc(db, "chats", `trip_${tripId}`);
+          // We still use arrayRemove for chats as per existing chat architecture
+          const { arrayRemove } = await import('firebase/firestore');
+          await setDoc(chatRef, { participantIds: arrayRemove(user.uid) }, { merge: true });
         }
       } else {
-        batch.update(tripRef, { members: arrayUnion(user.uid) });
-        batch.update(chatRef, { 
+        // Check visibility
+        if (targetTrip?.visibility === 'invite') {
+           alert("This is an invite-only trip. You need an invitation to join.");
+           return;
+        }
+        
+        await addTripMember(tripId, user.uid, 'member');
+        
+        // Add to chat
+        const chatRef = doc(db, "chats", `trip_${tripId}`);
+        const { arrayUnion } = await import('firebase/firestore');
+        await setDoc(chatRef, { 
           participantIds: arrayUnion(user.uid),
           [`participantsData.${user.uid}`]: { name: user.name, avatar: user.avatar || null }
-        });
-        await batch.commit();
+        }, { merge: true });
       }
 
     } catch (error) {
@@ -167,10 +200,20 @@ function App() {
   const myFriends = ["Rohan", "Sarah", "Raj", "Simran", "Amit"];
 
   const getFilteredTrips = (showMyTripsOnly = false) => {
-    let data = trips;
+    // 1. Base visibility filter
+    let data = trips.filter(trip => {
+      if (!trip.visibility || trip.visibility === 'public') return true;
+      if (user && trip.creatorId === user.uid) return true;
+      if (trip.visibility === 'invite') {
+        return user && trip.members && trip.members.includes(user.uid);
+      }
+      // For 'followers' visibility, we could ideally check following list, 
+      // but keeping it simple: allow them to see it in UI but they can't join if not a follower.
+      return true; 
+    });
 
     if (showMyTripsOnly && user) {
-      return trips.filter(t => t.creatorId === user.uid);
+      return data.filter(t => t.creatorId === user.uid);
     }
 
     switch (selectedCategory) {
@@ -322,6 +365,12 @@ function App() {
         <Route path="/settings" element={
           <ProtectedRoute user={user}>
             <Settings />
+          </ProtectedRoute>
+        } />
+        
+        <Route path="/notifications" element={
+          <ProtectedRoute user={user}>
+            <Notifications user={user} />
           </ProtectedRoute>
         } />
       </Routes>
