@@ -70,7 +70,16 @@ function App() {
         });
       } else {
         setUser(null);
-        setTripsMap(new Map()); // clear private trips on logout
+        // Only clear private trips on logout to avoid wiping the public feed
+        setTripsMap(prev => {
+          const next = new Map();
+          for (const [id, trip] of prev.entries()) {
+            if (trip.visibility === 'public' || trip.visibility === 'followers') {
+              next.set(id, trip);
+            }
+          }
+          return next;
+        });
       }
     });
 

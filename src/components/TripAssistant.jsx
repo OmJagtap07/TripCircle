@@ -34,7 +34,7 @@ const TripAssistant = () => {
 
     try {
       // 2. Call Gemini API (Using the Working Model)
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      const model = genAI.getGenerativeModel({ model: "gemini-3.5-flash" });
       
       const prompt = `
         You are the TripCircle AI Assistant. Your goal is to help users plan trips.
