@@ -231,11 +231,17 @@ const SpecialDeals = ({ trips, myFriends, category, onDelete, onJoin, user, onMe
               className="relative group overflow-hidden rounded-2xl cursor-pointer shadow-md hover:shadow-xl transition-all h-full"
             >
               <img 
-                src={trip.img} 
-                alt={trip.location} 
+                src={trip.coverImage?.thumbnailUrl || trip.coverImage?.imageUrl || trip.img} 
+                alt={trip.location || trip.name} 
                 className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent"></div>
+              
+              {trip.coverImage && trip.coverImage.photographerName && (
+                <div className="absolute bottom-1 right-2 z-10 text-[9px] text-white/70 bg-black/40 px-1.5 py-0.5 rounded backdrop-blur-sm">
+                  Photo by <a href={trip.coverImage.photographerProfile} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="hover:text-white underline">{trip.coverImage.photographerName}</a> on <a href={trip.coverImage.unsplashHome} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="hover:text-white underline">Unsplash</a>
+                </div>
+              )}
 
               {trip.members?.includes(user?.uid) && onMessageGroup && (
                 <button 

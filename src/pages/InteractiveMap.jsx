@@ -139,11 +139,11 @@ const InteractiveMap = ({ trips = [], loading = false, user, onJoin }) => {
                   <Popup minWidth={260} maxWidth={320}>
                     <div style={{ fontFamily: 'Inter, system-ui, sans-serif', padding: '4px 0' }}>
                       {/* Trip Image */}
-                      {trip.img && (
-                        <div style={{ margin: '-4px -20px 12px -20px', overflow: 'hidden', borderRadius: '0' }}>
+                      {(trip.coverImage || trip.img) && (
+                        <div style={{ margin: '-4px -20px 12px -20px', overflow: 'hidden', borderRadius: '0', position: 'relative' }}>
                           <img
-                            src={trip.img}
-                            alt={trip.location}
+                            src={trip.coverImage?.thumbnailUrl || trip.coverImage?.imageUrl || trip.img}
+                            alt={trip.location || trip.title}
                             style={{
                               width: '100%',
                               height: '120px',
@@ -151,6 +151,11 @@ const InteractiveMap = ({ trips = [], loading = false, user, onJoin }) => {
                               display: 'block',
                             }}
                           />
+                          {trip.coverImage && trip.coverImage.photographerName && (
+                            <div style={{ position: 'absolute', bottom: '2px', right: '4px', fontSize: '8px', color: 'rgba(255,255,255,0.8)', background: 'rgba(0,0,0,0.5)', padding: '1px 3px', borderRadius: '2px' }}>
+                              Photo by <a href={trip.coverImage.photographerProfile} target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', textDecoration: 'underline' }}>{trip.coverImage.photographerName}</a> on <a href={trip.coverImage.unsplashHome} target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', textDecoration: 'underline' }}>Unsplash</a>
+                            </div>
+                          )}
                         </div>
                       )}
 

@@ -25,11 +25,20 @@ const getBannerClass = (id) =>
 // ── Reusable sub-components ──────────────────────────────────────────────────
 const TripCard = ({ trip, onJoin, user, showLeave = true }) => {
     const isJoined = trip.members?.includes(user?.uid);
+    const coverPhoto = trip.coverImage?.thumbnailUrl || trip.coverImage?.imageUrl || trip.img;
+
     return (
         <div className="relative group overflow-hidden rounded-2xl shadow-md hover:shadow-xl transition-all h-52 cursor-pointer">
-            <img src={trip.img} alt={trip.location}
+            <img src={coverPhoto} alt={trip.location || trip.name}
                 className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+            
+            {trip.coverImage && trip.coverImage.photographerName && (
+                <div className="absolute bottom-1 right-2 z-10 text-[9px] text-white/70 bg-black/40 px-1.5 py-0.5 rounded backdrop-blur-sm">
+                    Photo by <a href={trip.coverImage.photographerProfile} target="_blank" rel="noopener noreferrer" className="hover:text-white underline">{trip.coverImage.photographerName}</a> on <a href={trip.coverImage.unsplashHome} target="_blank" rel="noopener noreferrer" className="hover:text-white underline">Unsplash</a>
+                </div>
+            )}
+
             <div className="absolute top-3 left-3 flex items-center space-x-2">
                 <img src={trip.avatar || `https://ui-avatars.com/api/?name=${trip.creatorName || 'User'}&background=f97316&color=fff`}
                     className="w-7 h-7 rounded-full border-2 border-white object-cover" alt="creator" />

@@ -84,8 +84,15 @@ const TripDetails = ({ trips = [], user, onJoin, onMessageGroup }) => {
         
         <div className="bg-white rounded-3xl shadow-xl overflow-hidden border border-gray-100">
           <div className="h-64 sm:h-80 relative">
-            <img src={trip.img} alt={trip.location} className="w-full h-full object-cover" />
+            <img src={trip.coverImage?.imageUrl || trip.img} alt={trip.location || trip.name} className="w-full h-full object-cover" />
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+            
+            {trip.coverImage && trip.coverImage.photographerName && (
+              <div className="absolute top-4 right-4 z-10 text-xs text-white/80 bg-black/40 px-2 py-1 rounded-md backdrop-blur-sm">
+                Photo by <a href={trip.coverImage.photographerProfile} target="_blank" rel="noopener noreferrer" className="hover:text-white underline font-medium">{trip.coverImage.photographerName}</a> on <a href={trip.coverImage.unsplashHome} target="_blank" rel="noopener noreferrer" className="hover:text-white underline font-medium">Unsplash</a>
+              </div>
+            )}
+
             <div className="absolute bottom-6 left-6 right-6">
               <h1 className="text-3xl sm:text-5xl font-black text-white mb-2">{trip.location}</h1>
               <div className="flex gap-2 flex-wrap mb-2">
