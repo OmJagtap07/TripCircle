@@ -9,13 +9,19 @@ const CategorySpotlight = ({ trip, badgeText, subtitle, extraInfo }) => {
       
       {/* 1. Background Image */}
       <img 
-        src={trip.img} 
+        src={trip.coverImage?.imageUrl || trip.img} 
         className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
         alt={trip.location}
       />
       
       {/* 2. Gradient Overlay */}
       <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/40 to-transparent"></div>
+
+      {trip.coverImage && trip.coverImage.photographerName && (
+        <div className="absolute bottom-2 right-4 z-10 text-xs text-white/70 bg-black/40 px-2 py-1 rounded-md backdrop-blur-sm">
+          Photo by <a href={trip.coverImage.photographerProfile} target="_blank" rel="noopener noreferrer" className="hover:text-white underline">{trip.coverImage.photographerName}</a> on <a href={trip.coverImage.unsplashHome} target="_blank" rel="noopener noreferrer" className="hover:text-white underline">Unsplash</a>
+        </div>
+      )}
 
       {/* 3. The Content */}
       <div className="absolute inset-0 flex flex-col justify-center px-8 md:px-12 max-w-2xl">

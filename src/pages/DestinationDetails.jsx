@@ -1,12 +1,16 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import SpecialDeals from '../components/SpecialDeals'; 
+import { searchDestinationPhotos, triggerUnsplashDownload } from '../services/unsplashService';
 
 // 1. ADD 'onPlanTrip' TO THE PROPS HERE
 const DestinationDetails = ({ allTrips, myFriends, onPlanTrip, user, onJoin, onMessageGroup }) => {
   const { name: destinationName } = useParams();
   const navigate = useNavigate();
   const onBack = () => navigate(-1);
+
+  const [unsplashPhotos, setUnsplashPhotos] = useState([]);
+  const [loadingPhotos, setLoadingPhotos] = useState(true);
   
   // --- 1. THE MOCK DATABASE ---
   const destinationsDB = {
@@ -88,13 +92,69 @@ const DestinationDetails = ({ allTrips, myFriends, onPlanTrip, user, onJoin, onM
     t.name.toLowerCase().includes(destinationName.toLowerCase())
   );
 
+  useEffect(() => {
+    const fetchPhotos = async () => {
+      setLoadingPhotos(true);
+      const photos = await searchDestinationPhotos(destinationName, 4);
+      setUnsplashPhotos(photos);
+      setLoadingPhotos(false);
+    };
+    fetchPhotos();
+  }, [destinationName]);
+
+  const handlePhotoClick = (photo) => {
+    triggerUnsplashDownload(photo.downloadLocation);
+  };
+
+  if (loadingPhotos) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center">
+        <div className="w-16 h-16 border-4 border-orange-200 border-t-orange-600 rounded-full animate-spin mb-6"></div>
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">Exploring {destinationName}...</h2>
+        <p className="text-gray-500 animate-pulse">Fetching the best travel spots and images.</p>
+      </div>
+    );
+  }
+
+  const isCompletelyEmpty = !loadingPhotos && relatedTrips.length === 0 && unsplashPhotos.length === 0;
+
+  if (isCompletelyEmpty) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="bg-white max-w-lg w-full rounded-3xl shadow-xl p-8 text-center animate-in zoom-in duration-300">
+          <div className="w-24 h-24 bg-orange-100 text-orange-500 rounded-full flex items-center justify-center mx-auto mb-6 text-4xl">
+            🌍
+          </div>
+          <h1 className="text-3xl font-black text-gray-900 mb-4">No destination found for "{destinationName}"</h1>
+          <p className="text-gray-500 mb-8">
+            We couldn't find any trips, itineraries, or photo galleries for this location. Try searching for a valid city, region, or country.
+          </p>
+          <div className="flex flex-col gap-3">
+            <button 
+              onClick={() => navigate('/')} 
+              className="w-full bg-gray-900 hover:bg-black text-white py-3 rounded-xl font-bold transition-colors"
+            >
+              Search Another Destination
+            </button>
+            <button 
+              onClick={onPlanTrip}
+              className="w-full bg-orange-100 hover:bg-orange-200 text-orange-700 py-3 rounded-xl font-bold transition-colors"
+            >
+              Create a Trip for this Place
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-white animate-in slide-in-from-right duration-300">
       
       {/* 🟢 SECTION 1: DESTINATION OVERVIEW */}
       <div className="relative h-[400px] w-full">
         <img 
-          src={data.coverImage} 
+          src={unsplashPhotos.length > 0 ? unsplashPhotos[0].imageUrl : data.coverImage} 
           className="w-full h-full object-cover" 
           alt={data.name} 
         />
@@ -172,32 +232,57 @@ const DestinationDetails = ({ allTrips, myFriends, onPlanTrip, user, onJoin, onM
           )}
         </div>
 
-        {/* 🟢 SECTION 4: EXPERIENCES */}
-        <section>
-          <div className="flex justify-between items-end mb-8">
-            <div>
-              <h2 className="text-3xl font-black text-gray-900">Experiences</h2>
-              <p className="text-gray-500">Captured moments from your circle in {data.name}.</p>
+        {/* 🟢 SECTION 4: DESTINATION GALLERY */}
+        {unsplashPhotos.length > 0 && (
+          <section>
+            <div className="flex justify-between items-end mb-8">
+              <div>
+                <h2 className="text-3xl font-black text-gray-900">Destination Gallery</h2>
+                <p className="text-gray-500">Inspiring views from {data.name}.</p>
+              </div>
+              <button className="text-orange-600 font-bold hover:underline">View on Unsplash →</button>
             </div>
-            <button className="text-orange-600 font-bold hover:underline">View all posts →</button>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 h-[400px]">
-            <div className="md:col-span-2 md:row-span-2 relative rounded-2xl overflow-hidden group cursor-pointer">
-               <img src={data.posts[0]} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" alt="post 1"/>
-               <div className="absolute bottom-4 left-4 flex items-center gap-2">
-                 <img src="https://ui-avatars.com/api/?name=Rohan" className="w-8 h-8 rounded-full border border-white" alt="user"/>
-                 <span className="text-white font-bold text-sm bg-black/40 px-2 py-1 rounded-full backdrop-blur-sm">Rohan in {data.name}</span>
-               </div>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 auto-rows-[250px]">
+              {unsplashPhotos.map((photo, idx) => (
+                <div 
+                  key={photo.id || idx} 
+                  className={`relative rounded-2xl overflow-hidden group cursor-pointer ${idx === 0 ? 'md:col-span-2 md:row-span-2' : ''}`}
+                  onClick={() => handlePhotoClick(photo)}
+                >
+                  <img src={idx === 0 ? photo.imageUrl : photo.thumbnailUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" alt={photo.title}/>
+                  
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-80 group-hover:opacity-100 transition-opacity"></div>
+                  
+                  <div className="absolute bottom-4 left-4 right-4 text-white">
+                    {photo.locationName && (
+                      <p className="text-xs font-bold text-orange-400 mb-1 flex items-center gap-1">
+                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd"></path></svg>
+                        {photo.locationName}
+                      </p>
+                    )}
+                    <h3 className={`font-bold leading-tight ${idx === 0 ? 'text-2xl mb-2' : 'text-sm mb-1'} line-clamp-2`}>{photo.title}</h3>
+                    {photo.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {photo.tags.map(tag => (
+                          <span key={tag} className="text-[10px] bg-white/20 backdrop-blur-sm px-2 py-0.5 rounded-full">#{tag}</span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Unsplash Attribution */}
+                  <div 
+                    className="absolute top-3 right-3 text-[9px] text-white/90 bg-black/40 backdrop-blur-sm px-2 py-1 rounded-sm opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    Photo by <a href={photo.photographerProfile} target="_blank" rel="noopener noreferrer" className="underline hover:text-white">{photo.photographerName}</a> on <a href={photo.unsplashHome} target="_blank" rel="noopener noreferrer" className="underline hover:text-white">Unsplash</a>
+                  </div>
+                </div>
+              ))}
             </div>
-            <div className="relative rounded-2xl overflow-hidden group cursor-pointer">
-               <img src={data.posts[1]} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" alt="post 2"/>
-            </div>
-            <div className="relative rounded-2xl overflow-hidden group cursor-pointer">
-               <img src={data.posts[2]} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" alt="post 3"/>
-            </div>
-          </div>
-        </section>
+          </section>
+        )}
 
       </div>
     </div>

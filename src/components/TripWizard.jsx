@@ -5,6 +5,7 @@ import { createTripGroupChat } from '../services/chatService';
 import { fetchCoordinates } from '../utils/geocode';
 import { addTripMember } from '../services/tripService';
 import { sendInvitations } from '../services/invitationService';
+import { fetchDestinationPhoto, triggerUnsplashDownload } from '../services/unsplashService';
 
 const TripWizard = ({ isOpen, onClose, user }) => {
   const [loading, setLoading] = useState(false);
@@ -72,6 +73,13 @@ const TripWizard = ({ isOpen, onClose, user }) => {
       setLoading(true);
 
       const coords = await fetchCoordinates(formData.location);
+      
+      // Fetch dynamic cover photo
+      const coverImage = await fetchDestinationPhoto(formData.location || formData.name);
+      
+      if (coverImage && coverImage.downloadLocation) {
+        triggerUnsplashDownload(coverImage.downloadLocation);
+      }
 
       const newTrip = {
         name: formData.name,
@@ -85,6 +93,7 @@ const TripWizard = ({ isOpen, onClose, user }) => {
         tags: ["Community"],
         
         ...(coords && { coordinates: coords }),
+        coverImage, // Save the Unsplash photo object
         
         createdAt: serverTimestamp()
       };
