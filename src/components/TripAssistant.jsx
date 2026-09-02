@@ -1,6 +1,26 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
+// ── 1. Define the Tool for Function Calling ──
+const weatherTool = {
+  functionDeclarations: [
+    {
+      name: "checkLiveWeather",
+      description: "Get the current weather forecast for a given travel destination.",
+      parameters: {
+        type: "OBJECT",
+        properties: {
+          location: {
+            type: "STRING",
+            description: "The city or destination name, e.g. Paris, Tokyo",
+          },
+        },
+        required: ["location"],
+      },
+    },
+  ],
+};
+
 const TripAssistant = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([
@@ -8,6 +28,10 @@ const TripAssistant = () => {
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  
+  // ── 2. Add Token Monitoring State ──
+  const [totalTokens, setTotalTokens] = useState(0);
+  
   const messagesEndRef = useRef(null);
 
   // Initialize Gemini
@@ -26,29 +50,84 @@ const TripAssistant = () => {
     e.preventDefault();
     if (!input.trim()) return;
 
-    // 1. Add User Message
+    // Add User Message
     const userMessage = { role: 'user', text: input };
     setMessages(prev => [...prev, userMessage]);
     setInput('');
     setIsLoading(true);
 
     try {
-      // 2. Call Gemini API (Using the Working Model)
-      const model = genAI.getGenerativeModel({ model: "gemini-3.5-flash" });
+      // 3. Configure Model with Tools
+      const model = genAI.getGenerativeModel({ 
+        model: "gemini-1.5-flash",
+        tools: [weatherTool] 
+      });
+      
+      // We use startChat instead of generateContent to support multi-turn function calling
+      const chat = model.startChat();
       
       const prompt = `
         You are the TripCircle AI Assistant. Your goal is to help users plan trips.
         - Suggest "hot spots" and trending locations.
         - Keep answers short, fun, and emoji-friendly.
         - If asked about budget, give estimates in INR (₹).
+        - If the user asks about the weather, ALWAYS use the checkLiveWeather tool.
+        - You MUST return ONLY a valid JSON object in the final response. Do not include markdown formatting or backticks.
+        - The JSON must follow this exact structure:
+        {
+          "destination": "...",
+          "days": 3,
+          "estimatedBudget": "₹15,000",
+          "weather": "...",
+          "itinerary": [
+            {
+              "day": 1,
+              "activities": ["..."]
+            }
+          ]
+        }
         - User asked: ${input}
       `;
 
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
+      // Initial request
+      let result = await chat.sendMessage(prompt);
+      let response = await result.response;
+
+      // Update Token Counter
+      if (response.usageMetadata) {
+        setTotalTokens(prev => prev + response.usageMetadata.totalTokenCount);
+      }
+
+      // 4. Handle Function Calling (Intercepting the tool use)
+      if (response.functionCalls()) {
+        const call = response.functionCalls()[0];
+        
+        if (call.name === 'checkLiveWeather') {
+           const { location } = call.args;
+           console.log(`[TripCircle AI Tool Called] Fetching weather for: ${location}`);
+           
+           // Simulated local function execution
+           const simulatedWeather = `Sunny, 28°C (Simulated data for ${location})`;
+           
+           // Send the function result back to Gemini so it can answer the user
+           result = await chat.sendMessage([{
+             functionResponse: {
+               name: 'checkLiveWeather',
+               response: { weather: simulatedWeather }
+             }
+           }]);
+           response = await result.response;
+           
+           // Update tokens again after second turn
+           if (response.usageMetadata) {
+             setTotalTokens(prev => prev + response.usageMetadata.totalTokenCount);
+           }
+        }
+      }
+
       const aiText = response.text();
 
-      // 3. Add AI Message
+      // Add AI Message
       setMessages(prev => [...prev, { role: 'ai', text: aiText }]);
     } catch (error) {
       console.error("Gemini Error:", error);
@@ -60,7 +139,7 @@ const TripAssistant = () => {
 
   return (
     <>
-      {/* 1. FLOATING CHAT BUTTON (With Expand-on-Hover Effect) */}
+      {/* FLOATING CHAT BUTTON (With Expand-on-Hover Effect) */}
       {!isOpen && (
         <button 
           onClick={() => setIsOpen(true)}
@@ -81,17 +160,23 @@ const TripAssistant = () => {
         </button>
       )}
 
-      {/* 2. CHAT WINDOW (Visible when open) */}
+      {/* CHAT WINDOW (Visible when open) */}
       {isOpen && (
         <div className="fixed bottom-24 right-4 sm:right-8 z-50 w-[90%] sm:w-96 h-[500px] bg-white rounded-2xl shadow-2xl flex flex-col border border-gray-200 animate-in slide-in-from-bottom-10 duration-300">
           
-          {/* Header */}
+          {/* 5. Header (Updated with Token Monitoring UI) */}
           <div className="bg-gray-900 text-white p-4 rounded-t-2xl flex justify-between items-center">
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
               <h3 className="font-bold">TripCircle AI</h3>
             </div>
-            <button onClick={() => setIsOpen(false)} className="text-gray-400 hover:text-white">✕</button>
+            <div className="flex items-center gap-4">
+              {/* Token Counter */}
+              <div className="text-[10px] text-orange-400 font-mono bg-gray-800 px-2 py-1 rounded border border-gray-700" title="Total Gemini tokens consumed">
+                Tokens: {totalTokens.toLocaleString()}
+              </div>
+              <button onClick={() => setIsOpen(false)} className="text-gray-400 hover:text-white">✕</button>
+            </div>
           </div>
 
           {/* Messages Area */}
@@ -105,8 +190,35 @@ const TripAssistant = () => {
                       : 'bg-white text-gray-800 border border-gray-200 rounded-bl-none shadow-sm'
                   }`}
                 >
-                  {/* Render text with basic formatting */}
-                  {msg.text.split('*').join('')} 
+                  {msg.role === 'ai' ? (
+                    <div className="space-y-2">
+                      {(() => {
+                        try {
+                          const data = JSON.parse(msg.text);
+                          return (
+                            <>
+                              {data.destination && <p><strong>Destination:</strong> {data.destination}</p>}
+                              {data.days && <p><strong>Days:</strong> {data.days}</p>}
+                              {data.estimatedBudget && <p><strong>Budget:</strong> {data.estimatedBudget}</p>}
+                              {data.weather && <p><strong>Weather 🌤️:</strong> {data.weather}</p>}
+                              {data.itinerary && data.itinerary.map((item, idx) => (
+                                <div key={idx} className="mt-2">
+                                  <strong>Day {item.day}:</strong>
+                                  <ul className="list-disc pl-4 mt-1">
+                                    {item.activities && item.activities.map((act, i) => <li key={i}>{act}</li>)}
+                                  </ul>
+                                </div>
+                              ))}
+                            </>
+                          );
+                        } catch (e) {
+                          return msg.text.split('*').join('');
+                        }
+                      })()}
+                    </div>
+                  ) : (
+                    msg.text.split('*').join('')
+                  )} 
                 </div>
               </div>
             ))}
@@ -131,7 +243,7 @@ const TripAssistant = () => {
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="Ask about hotspots..."
+                placeholder="Ask about hotspots or weather..."
                 className="flex-1 bg-gray-100 border-0 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-orange-500 outline-none"
               />
               <button 
