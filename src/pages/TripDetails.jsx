@@ -4,6 +4,7 @@ import { useTripMembers } from '../hooks/useTripMembers';
 import { useTripInvitations } from '../hooks/useTripInvitations';
 import { useUsers } from '../hooks/useUsers';
 import { cancelInvitation } from '../services/invitationService';
+import FindHotelsButton from '../components/FindHotelsButton';
 
 const TripDetails = ({ trips = [], user, onJoin, onMessageGroup }) => {
   const { tripId } = useParams();
@@ -115,7 +116,9 @@ const TripDetails = ({ trips = [], user, onJoin, onMessageGroup }) => {
                 <p className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Est. Budget / Person</p>
               </div>
               
-              <div className="flex gap-3">
+              <div className="flex flex-wrap gap-3">
+                <FindHotelsButton destination={trip.location} />
+                
                 {isJoined ? (
                    <button 
                      onClick={() => onMessageGroup(trip.id)}
