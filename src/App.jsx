@@ -333,7 +333,7 @@ function App() {
             <Hero />
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-10 relative z-30 space-y-16 pb-20">
               <Categories selectedCategory={selectedCategory} onSelectCategory={setSelectedCategory} />
-              {selectedCategory === 'all' && <MapTeaser />}
+              {selectedCategory === 'all' && <MapTeaser trips={trips} user={user} onJoin={handleJoinTrip} />}
               {selectedCategory !== 'all' && spotlightData && <CategorySpotlight {...spotlightData} />}
 
               <SpecialDeals

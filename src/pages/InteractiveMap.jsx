@@ -1,29 +1,29 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
-import L from 'leaflet';
-import markerIcon from 'leaflet/dist/images/marker-icon.png';
-import markerShadow from 'leaflet/dist/images/marker-shadow.png';
-
-// --- Fix for missing default marker icons in Leaflet + React ---
-const DefaultIcon = L.icon({
-  iconUrl: markerIcon,
-  shadowUrl: markerShadow,
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41],
-});
-L.Marker.prototype.options.icon = DefaultIcon;
+import { useJsApiLoader } from '@react-google-maps/api';
+import GoogleMapView from '../components/GoogleMapView';
 
 // --- India Center Coordinates ---
 const INDIA_CENTER = [22.5937, 78.9629];
 const INDIA_ZOOM = 5;
 
+const libraries = ['places', 'marker'];
+
 const InteractiveMap = ({ trips = [], loading = false, user, onJoin }) => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchedPlace, setSearchedPlace] = useState(null);
+  const [searchError, setSearchError] = useState(null);
+  const autocompleteContainerRef = useRef(null);
+  const placeAutocompleteRef = useRef(null);
+
+  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+  const { isLoaded } = useJsApiLoader({
+    id: 'google-map-script',
+    googleMapsApiKey: apiKey || '',
+    libraries,
+    version: 'weekly',
+  });
 
   // Filter trips that have valid coordinates
   const geoTrips = useMemo(() => {
@@ -35,16 +35,72 @@ const InteractiveMap = ({ trips = [], loading = false, user, onJoin }) => {
     );
   }, [trips]);
 
-  // Search/filter within geo trips
+  // Search/filter within geo trips (Only local filtering if they didn't use Places autocomplete)
   const filteredTrips = useMemo(() => {
-    if (!searchQuery.trim()) return geoTrips;
+    if (!searchQuery.trim() || searchedPlace) return geoTrips;
     const q = searchQuery.toLowerCase();
     return geoTrips.filter(
       (trip) =>
         (trip.title && trip.title.toLowerCase().includes(q)) ||
         (trip.location && trip.location.toLowerCase().includes(q))
     );
-  }, [geoTrips, searchQuery]);
+  }, [geoTrips, searchQuery, searchedPlace]);
+
+  useEffect(() => {
+    if (isLoaded && autocompleteContainerRef.current && !placeAutocompleteRef.current) {
+      const autocomplete = new window.google.maps.places.PlaceAutocompleteElement();
+      
+      // Basic styling for the web component
+      autocomplete.style.width = '100%';
+      autocomplete.style.height = '100%';
+      autocomplete.style.display = 'block';
+      autocomplete.style.backgroundColor = 'transparent';
+      autocomplete.style.border = 'none';
+
+      autocompleteContainerRef.current.appendChild(autocomplete);
+      placeAutocompleteRef.current = autocomplete;
+
+      autocomplete.addEventListener('gmp-placeselect', async (e) => {
+        const place = e.place;
+        if (!place) return;
+        
+        setSearchError(null);
+        try {
+          await place.fetchFields({ fields: ['displayName', 'formattedAddress', 'location'] });
+          
+          if (place.location) {
+            setSearchedPlace({
+              name: place.displayName,
+              formatted_address: place.formattedAddress,
+              lat: typeof place.location.lat === 'function' ? place.location.lat() : place.location.lat,
+              lng: typeof place.location.lng === 'function' ? place.location.lng() : place.location.lng
+            });
+            setSearchQuery(place.displayName || place.formattedAddress || '');
+          } else {
+            setSearchError('No coordinates found for this location.');
+            setSearchedPlace(null);
+          }
+        } catch (error) {
+          console.error('Error fetching place details:', error);
+          setSearchError('Unable to retrieve place details.');
+        }
+      });
+    }
+  }, [isLoaded]);
+
+  const clearSearch = () => {
+    setSearchQuery('');
+    setSearchedPlace(null);
+    setSearchError(null);
+    if (placeAutocompleteRef.current) {
+      // Clear the internal input of the web component if possible
+      try {
+        placeAutocompleteRef.current.value = '';
+      } catch (e) {
+        console.error('Error clearing autocomplete', e);
+      }
+    }
+  };
 
   const handleViewTrip = (tripId) => {
     navigate(`/trip/${tripId}`);
@@ -83,24 +139,40 @@ const InteractiveMap = ({ trips = [], loading = false, user, onJoin }) => {
             </div>
           </div>
 
+          {/* Global Styles for the Web Component Inner Elements */}
+          <style dangerouslySetInnerHTML={{__html: `
+            gmp-place-picker {
+              width: 100%;
+            }
+          `}} />
+          
           {/* Search */}
-          <div className="relative w-full sm:w-72">
-            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="relative w-full sm:w-80 flex items-center bg-gray-50 border border-gray-200 rounded-xl transition-all focus-within:ring-2 focus-within:ring-orange-300 focus-within:border-orange-300 px-3 py-2">
+            <svg className="w-4 h-4 text-gray-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search trips on map..."
-              className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-300 transition-all"
-            />
+            
+            <div className="flex-1 min-w-0" ref={autocompleteContainerRef} style={{ minHeight: '24px' }}>
+              {!isLoaded && <span className="text-gray-400 text-sm">Loading search...</span>}
+            </div>
+
+            {searchQuery && (
+              <button
+                onClick={clearSearch}
+                className="ml-2 p-1 flex-shrink-0 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-200 transition-colors"
+                title="Clear Search"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
           </div>
         </div>
       </div>
 
       {/* --- Map Area --- */}
-      <div className="flex-1 relative" style={{ minHeight: 'calc(100vh - 160px)' }}>
+      <div className="flex-1 relative" style={{ height: 'calc(100vh - 160px)', minHeight: '400px' }}>
         {loading ? (
           /* Loading State */
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-50 z-10">
@@ -118,169 +190,17 @@ const InteractiveMap = ({ trips = [], loading = false, user, onJoin }) => {
           </div>
         ) : (
           <>
-            <MapContainer
-              center={INDIA_CENTER}
-              zoom={INDIA_ZOOM}
-              scrollWheelZoom={true}
-              className="h-full w-full"
-              style={{ height: '100%', width: '100%', position: 'absolute', inset: 0 }}
-              zoomControl={true}
-            >
-              <TileLayer
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              />
-
-              {filteredTrips.map((trip) => (
-                <Marker
-                  key={trip.id}
-                  position={[trip.coordinates.lat, trip.coordinates.lng]}
-                >
-                  <Popup minWidth={260} maxWidth={320}>
-                    <div style={{ fontFamily: 'Inter, system-ui, sans-serif', padding: '4px 0' }}>
-                      {/* Trip Image */}
-                      {(trip.coverImage || trip.img) && (
-                        <div style={{ margin: '-4px -20px 12px -20px', overflow: 'hidden', borderRadius: '0', position: 'relative' }}>
-                          <img
-                            src={trip.coverImage?.thumbnailUrl || trip.coverImage?.imageUrl || trip.img}
-                            alt={trip.location || trip.title}
-                            style={{
-                              width: '100%',
-                              height: '120px',
-                              objectFit: 'cover',
-                              display: 'block',
-                            }}
-                          />
-                          {trip.coverImage && trip.coverImage.photographerName && (
-                            <div style={{ position: 'absolute', bottom: '2px', right: '4px', fontSize: '8px', color: 'rgba(255,255,255,0.8)', background: 'rgba(0,0,0,0.5)', padding: '1px 3px', borderRadius: '2px' }}>
-                              Photo by <a href={trip.coverImage.photographerProfile} target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', textDecoration: 'underline' }}>{trip.coverImage.photographerName}</a> on <a href={trip.coverImage.unsplashHome} target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', textDecoration: 'underline' }}>Unsplash</a>
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Trip Title */}
-                      <h3 style={{
-                        fontSize: '16px',
-                        fontWeight: '800',
-                        color: '#111827',
-                        margin: '0 0 2px 0',
-                        lineHeight: '1.3',
-                      }}>
-                        {trip.title || trip.location}
-                      </h3>
-
-                      {/* Location */}
-                      <p style={{
-                        fontSize: '13px',
-                        color: '#6b7280',
-                        margin: '0 0 10px 0',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px',
-                      }}>
-                        📍 {trip.location}
-                      </p>
-
-                      {/* Stats Row */}
-                      <div style={{
-                        display: 'flex',
-                        gap: '12px',
-                        marginBottom: '12px',
-                        padding: '8px 10px',
-                        background: '#f9fafb',
-                        borderRadius: '10px',
-                        border: '1px solid #f3f4f6',
-                      }}>
-                        <div>
-                          <span style={{ fontSize: '11px', color: '#9ca3af', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                            Budget
-                          </span>
-                          <p style={{ fontSize: '14px', fontWeight: '700', color: '#ea580c', margin: '2px 0 0 0' }}>
-                            ₹{trip.budget ? trip.budget.toLocaleString() : '—'}
-                          </p>
-                        </div>
-                        <div style={{ width: '1px', background: '#e5e7eb' }} />
-                        <div>
-                          <span style={{ fontSize: '11px', color: '#9ca3af', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                            Members
-                          </span>
-                          <p style={{ fontSize: '14px', fontWeight: '700', color: '#111827', margin: '2px 0 0 0' }}>
-                            {trip.members?.length || 0}
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Tags */}
-                      {trip.tags && trip.tags.length > 0 && (
-                        <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginBottom: '12px' }}>
-                          {trip.tags.slice(0, 3).map((tag, i) => (
-                            <span
-                              key={i}
-                              style={{
-                                fontSize: '10px',
-                                fontWeight: '600',
-                                color: '#6366f1',
-                                background: '#eef2ff',
-                                padding: '3px 8px',
-                                borderRadius: '20px',
-                              }}
-                            >
-                              {tag}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* Action Buttons */}
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <button
-                          onClick={() => handleViewTrip(trip.id)}
-                          style={{
-                            flex: 1,
-                            padding: '8px 12px',
-                            fontSize: '12px',
-                            fontWeight: '700',
-                            color: '#ffffff',
-                            background: 'linear-gradient(135deg, #ea580c, #f97316)',
-                            border: 'none',
-                            borderRadius: '10px',
-                            cursor: 'pointer',
-                            transition: 'all 0.2s',
-                          }}
-                          onMouseEnter={(e) => e.target.style.transform = 'translateY(-1px)'}
-                          onMouseLeave={(e) => e.target.style.transform = 'translateY(0)'}
-                        >
-                          View Trip
-                        </button>
-
-                        {user && trip.creatorId !== user.uid && (
-                          <button
-                            onClick={() => handleJoinTrip(trip.id)}
-                            style={{
-                              flex: 1,
-                              padding: '8px 12px',
-                              fontSize: '12px',
-                              fontWeight: '700',
-                              color: user && trip.members?.includes(user.uid) ? '#dc2626' : '#4f46e5',
-                              background: user && trip.members?.includes(user.uid) ? '#fef2f2' : '#eef2ff',
-                              border: `1px solid ${user && trip.members?.includes(user.uid) ? '#fecaca' : '#c7d2fe'}`,
-                              borderRadius: '10px',
-                              cursor: 'pointer',
-                              transition: 'all 0.2s',
-                            }}
-                            onMouseEnter={(e) => e.target.style.transform = 'translateY(-1px)'}
-                            onMouseLeave={(e) => e.target.style.transform = 'translateY(0)'}
-                          >
-                            {user && trip.members?.includes(user.uid) ? 'Leave' : 'Join Trip'}
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </Popup>
-                </Marker>
-              ))}
-            </MapContainer>
+            <GoogleMapView 
+              trips={trips} 
+              filteredTrips={filteredTrips} 
+              user={user} 
+              onJoin={onJoin} 
+              searchedPlace={searchedPlace} 
+              setSearchedPlace={(place) => {
+                setSearchedPlace(place);
+                if (!place) setSearchQuery('');
+              }} 
+            />
 
             {/* Empty State Overlay (when no trips have coordinates) */}
             {geoTrips.length === 0 && (
@@ -306,14 +226,14 @@ const InteractiveMap = ({ trips = [], loading = false, user, onJoin }) => {
               </div>
             )}
 
-            {/* Search yielded no results overlay */}
-            {geoTrips.length > 0 && filteredTrips.length === 0 && searchQuery.trim() && (
+            {/* Search error overlay */}
+            {searchError && (
               <div className="absolute inset-0 flex items-center justify-center z-[1000] pointer-events-none">
                 <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-gray-100 p-8 max-w-sm mx-4 text-center pointer-events-auto">
-                  <p className="text-4xl mb-3">🔍</p>
-                  <h3 className="text-lg font-bold text-gray-900 mb-2">No matching trips</h3>
+                  <p className="text-4xl mb-3">🌍</p>
+                  <h3 className="text-lg font-bold text-gray-900 mb-2">No places found</h3>
                   <p className="text-gray-500 text-sm">
-                    No trips match "<span className="font-semibold">{searchQuery}</span>". Try a different search.
+                    {searchError}
                   </p>
                 </div>
               </div>
