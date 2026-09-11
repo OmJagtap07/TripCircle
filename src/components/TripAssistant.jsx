@@ -59,7 +59,7 @@ const TripAssistant = () => {
     try {
       // 3. Configure Model with Tools
       const model = genAI.getGenerativeModel({ 
-        model: "gemini-1.5-flash",
+        model: "gemini-2.5-flash",
         tools: [weatherTool] 
       });
       
@@ -72,20 +72,9 @@ const TripAssistant = () => {
         - Keep answers short, fun, and emoji-friendly.
         - If asked about budget, give estimates in INR (₹).
         - If the user asks about the weather, ALWAYS use the checkLiveWeather tool.
-        - You MUST return ONLY a valid JSON object in the final response. Do not include markdown formatting or backticks.
-        - The JSON must follow this exact structure:
-        {
-          "destination": "...",
-          "days": 3,
-          "estimatedBudget": "₹15,000",
-          "weather": "...",
-          "itinerary": [
-            {
-              "day": 1,
-              "activities": ["..."]
-            }
-          ]
-        }
+        - Reply naturally in plain text. Never return JSON, placeholder values, or a code block.
+        - If the user has not provided a destination, ask one clear follow-up question.
+        - For trip-planning requests, use short headings or bullets when helpful.
         - User asked: ${input}
       `;
 
@@ -190,35 +179,9 @@ const TripAssistant = () => {
                       : 'bg-white text-gray-800 border border-gray-200 rounded-bl-none shadow-sm'
                   }`}
                 >
-                  {msg.role === 'ai' ? (
-                    <div className="space-y-2">
-                      {(() => {
-                        try {
-                          const data = JSON.parse(msg.text);
-                          return (
-                            <>
-                              {data.destination && <p><strong>Destination:</strong> {data.destination}</p>}
-                              {data.days && <p><strong>Days:</strong> {data.days}</p>}
-                              {data.estimatedBudget && <p><strong>Budget:</strong> {data.estimatedBudget}</p>}
-                              {data.weather && <p><strong>Weather 🌤️:</strong> {data.weather}</p>}
-                              {data.itinerary && data.itinerary.map((item, idx) => (
-                                <div key={idx} className="mt-2">
-                                  <strong>Day {item.day}:</strong>
-                                  <ul className="list-disc pl-4 mt-1">
-                                    {item.activities && item.activities.map((act, i) => <li key={i}>{act}</li>)}
-                                  </ul>
-                                </div>
-                              ))}
-                            </>
-                          );
-                        } catch (e) {
-                          return msg.text.split('*').join('');
-                        }
-                      })()}
-                    </div>
-                  ) : (
-                    msg.text.split('*').join('')
-                  )} 
+                  <div className="whitespace-pre-line">
+                    {msg.text.replace(/^```(?:json|text)?\s*|\s*```$/g, '').replace(/\*\*/g, '')}
+                  </div>
                 </div>
               </div>
             ))}
