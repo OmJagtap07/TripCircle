@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import SpecialDeals from '../components/SpecialDeals'; 
 import { searchDestinationPhotos, triggerUnsplashDownload } from '../services/unsplashService';
+import FindHotelsButton from '../components/FindHotelsButton';
 
 // 1. ADD 'onPlanTrip' TO THE PROPS HERE
 const DestinationDetails = ({ allTrips, myFriends, onPlanTrip, user, onJoin, onMessageGroup }) => {
@@ -116,37 +117,7 @@ const DestinationDetails = ({ allTrips, myFriends, onPlanTrip, user, onJoin, onM
     );
   }
 
-  const isCompletelyEmpty = !loadingPhotos && relatedTrips.length === 0 && unsplashPhotos.length === 0;
 
-  if (isCompletelyEmpty) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="bg-white max-w-lg w-full rounded-3xl shadow-xl p-8 text-center animate-in zoom-in duration-300">
-          <div className="w-24 h-24 bg-orange-100 text-orange-500 rounded-full flex items-center justify-center mx-auto mb-6 text-4xl">
-            🌍
-          </div>
-          <h1 className="text-3xl font-black text-gray-900 mb-4">No destination found for "{destinationName}"</h1>
-          <p className="text-gray-500 mb-8">
-            We couldn't find any trips, itineraries, or photo galleries for this location. Try searching for a valid city, region, or country.
-          </p>
-          <div className="flex flex-col gap-3">
-            <button 
-              onClick={() => navigate('/')} 
-              className="w-full bg-gray-900 hover:bg-black text-white py-3 rounded-xl font-bold transition-colors"
-            >
-              Search Another Destination
-            </button>
-            <button 
-              onClick={onPlanTrip}
-              className="w-full bg-orange-100 hover:bg-orange-200 text-orange-700 py-3 rounded-xl font-bold transition-colors"
-            >
-              Create a Trip for this Place
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-white animate-in slide-in-from-right duration-300">
@@ -172,7 +143,8 @@ const DestinationDetails = ({ allTrips, myFriends, onPlanTrip, user, onJoin, onM
             {data.country}
           </span>
           <h1 className="text-5xl md:text-7xl font-black mb-2">{data.name}</h1>
-          <p className="text-xl md:text-2xl font-medium opacity-90">{data.tagline}</p>
+          <p className="text-xl md:text-2xl font-medium opacity-90 mb-6">{data.tagline}</p>
+          <FindHotelsButton destination={data.name} />
         </div>
       </div>
 
